@@ -1,6 +1,6 @@
 {
   "name": "night-pm",
-  "productName": "night-pm",
+  "productName": "Night PM",
   "version": "0.1.0",
   "description": "A brainless product management app that sits on top of AI engines. Manage thoughts, todos, calendar, contacts, and documents -- all as plain files, all through MCP tools.",
   "main": ".vite/build/main.js",
@@ -16,7 +16,8 @@
     "test:codex": "vitest run src/test/codex.test.ts",
     "test:claude": "vitest run src/test/claude.test.ts",
     "test:opencode": "vitest run src/test/opencode.test.ts",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "reset": "rm -f \"$HOME/Library/Application Support/Night PM/night-pm-settings.json\" && node scripts/clear-keychain.mjs && echo 'Night PM settings cleared.'"
   },
   "keywords": [],
   "author": {
@@ -70,11 +71,13 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "electron-squirrel-startup": "^1.0.1",
+    "keytar": "^7.9.0",
     "lucide-react": "^0.577.0",
     "marked": "^17.0.4",
     "radix-ui": "^1.4.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-markdown": "^10.1.0",
     "tailwind-merge": "^3.5.0",
     "tailwindcss-animate": "^1.0.7",
     "turndown": "^7.2.2",

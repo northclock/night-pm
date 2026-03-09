@@ -61,7 +61,7 @@ export interface OpenFile {
 export type ProviderId = 'claude' | 'gemini' | 'codex' | 'opencode';
 
 export interface ClaudeSettings {
-  authMode: 'vertex' | 'api-key';
+  authMode: 'auto' | 'vertex' | 'api-key';
   anthropicApiKey: string;
   vertexProjectId: string;
   vertexRegion: string;

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Brain, Lightning } from '@phosphor-icons/react';
+import { Lightning } from '@phosphor-icons/react';
 import { format, parseISO } from 'date-fns';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { OpenFile, Thought } from '../../types';
+import { logoUrl } from '../../assets';
 
 interface ThoughtsListViewProps { file: OpenFile; }
 
@@ -19,7 +20,7 @@ export function ThoughtsListView({ file }: ThoughtsListViewProps) {
   return (
     <div className="h-full flex flex-col p-4 overflow-auto">
       <div className="flex items-center gap-2 mb-4">
-        <Brain size={20} className="text-night-accent2" weight="duotone" />
+        <img src={logoUrl} alt="" className="w-5 h-5 dark:invert" draggable={false} />
         <h2 className="text-lg font-semibold text-foreground">Thoughts</h2>
         <span className="text-xs text-muted-foreground ml-2">{thoughts.length} thought{thoughts.length !== 1 ? 's' : ''}</span>
       </div>

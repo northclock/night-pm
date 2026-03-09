@@ -10,6 +10,7 @@ import { AIConsole } from '../AIConsole/AIConsole';
 import { ProviderSetupDialog } from '../ProviderSetup/ProviderSetupDialog';
 import { useAppStore } from '../../store';
 import type { ProviderAvailability, ProviderId } from '../../types';
+import { logoUrl } from '../../assets';
 
 type OverlayPanel = 'settings' | 'console' | null;
 
@@ -102,13 +103,7 @@ function WelcomeScreen() {
 
       <div className="relative z-10 flex flex-col items-center gap-8">
         <div className="flex items-center justify-center w-24 h-24 rounded-[2rem] bg-gradient-to-br from-muted/80 to-background/50 border border-border shadow-2xl backdrop-blur-md">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary opacity-90">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-            <path d="M8 15l3-3 2.5 1.5L17 9" />
-            <path d="M8 15h.01M11 12h.01M13.5 13.5h.01M17 9h.01" strokeWidth="3" />
-            <path d="M14 4v1m-.5-.5h1" />
-            <path d="M19 6v1m-.5-.5h1" />
-          </svg>
+        <img src={logoUrl} alt="Night PM" className="w-14 h-14 opacity-90 dark:invert" draggable={false} />
         </div>
         
         <div className="text-center space-y-3">

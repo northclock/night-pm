@@ -243,7 +243,7 @@ function runSession(session: GeminiSession) {
   });
 }
 
-export function createGeminiProvider(getConfig: () => GeminiConfig): AIProvider {
+export function createGeminiProvider(getConfig: () => Promise<GeminiConfig>): AIProvider {
   return {
     id: 'gemini',
     displayName: 'Gemini',
@@ -251,7 +251,7 @@ export function createGeminiProvider(getConfig: () => GeminiConfig): AIProvider 
     async startSession(opts: StartSessionOpts): Promise<void> {
       this.stopSession(opts.key);
 
-      const config = getConfig();
+      const config = await getConfig();
       const prompt = buildPrompt(opts.initialPrompt, opts.systemInstructions);
 
       const args = ['--output-format', 'json', '--yolo', '-p', prompt];
@@ -307,7 +307,7 @@ export function createGeminiProvider(getConfig: () => GeminiConfig): AIProvider 
       // Kill previous process if still lingering
       this.stopSession(key);
 
-      const config = getConfig();
+      const config = await getConfig();
       const args = ['--output-format', 'json', '--yolo', '-p', text];
 
       if (config.model) {

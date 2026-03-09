@@ -142,8 +142,24 @@ export function Sidebar({ onOpenSettings, onOpenConsole }: SidebarProps) {
         {rootPath ? (
           <FileTree entries={fileTree} depth={0} basePath={rootPath} onRefresh={refreshTree} />
         ) : (
-          <div className="p-4 text-xs text-muted-foreground text-center">
-            Open a directory to browse projects
+          <div className="flex flex-col items-center justify-center h-full gap-4 px-5 py-10 text-center">
+            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-muted/60 border border-border">
+              <FolderOpen size={20} className="text-muted-foreground" weight="duotone" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">No directory open</p>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Open a folder to browse and manage your projects.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              className="gap-1.5 text-xs"
+              onClick={handleOpenDirectory}
+            >
+              <FolderOpen size={13} />
+              Open Directory
+            </Button>
           </div>
         )}
       </ScrollArea>

@@ -1,8 +1,17 @@
-import { BrowserWindow, screen, ipcMain } from 'electron';
+import { BrowserWindow, screen, ipcMain, nativeImage, app } from 'electron';
 import * as path from 'node:path';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
+
+function getAppIcon() {
+  const iconPath = path.join(app.getAppPath(), 'images', 'icon.png');
+  try {
+    return nativeImage.createFromPath(iconPath);
+  } catch {
+    return undefined;
+  }
+}
 
 let mainWindow: BrowserWindow | null = null;
 let thoughtsWindow: BrowserWindow | null = null;
@@ -16,18 +25,26 @@ export function getThoughtsWindow() {
 }
 
 export function createMainWindow() {
+  const icon = getAppIcon();
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 800,
     minHeight: 600,
+    title: 'Night PM',
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 12, y: 10 },
     backgroundColor: '#0b1120',
+    ...(icon ? { icon } : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
     },
   });
+
+  if (process.platform === 'darwin' && icon) {
+    app.dock.setIcon(icon);
+  }
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);

@@ -9,7 +9,15 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
 const config: ForgeConfig = {
   packagerConfig: {
-    asar: true,
+    asar: {
+      unpack: '**/{keytar.node,*.node}',
+    },
+    icon: './images/icon',
+    name: 'Night PM',
+    executableName: 'night-pm',
+    appBundleId: 'com.nightpm.app',
+    appCategoryType: 'public.app-category.productivity',
+    darwinDarkModeSupport: true,
   },
   rebuildConfig: {},
   makers: [

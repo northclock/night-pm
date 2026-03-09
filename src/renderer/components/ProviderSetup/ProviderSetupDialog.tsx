@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Brain, Check, ArrowSquareOut } from '@phosphor-icons/react';
+import { Check, ArrowSquareOut } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { ProviderId, ProviderAvailability } from '../../types';
+import { logoUrl } from '../../assets';
 
 interface ProviderSetupDialogProps {
   providers: ProviderAvailability[];
@@ -17,8 +18,8 @@ export function ProviderSetupDialog({ providers, onSelect }: ProviderSetupDialog
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="w-full max-w-lg mx-4 rounded-xl border border-border bg-background shadow-2xl">
         <div className="flex flex-col items-center gap-2 px-6 pt-8 pb-4">
-          <div className="flex items-center justify-center size-12 rounded-full bg-primary/10 text-primary mb-1">
-            <Brain size={28} weight="duotone" />
+          <div className="flex items-center justify-center size-12 rounded-full bg-primary/10 mb-1">
+            <img src={logoUrl} alt="Night PM" className="size-7 dark:invert" draggable={false} />
           </div>
           <h1 className="text-xl font-semibold text-foreground">Welcome to Night PM</h1>
           <p className="text-sm text-muted-foreground">Choose your AI provider to get started</p>

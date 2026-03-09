@@ -13,6 +13,8 @@ if (started) {
   app.quit();
 }
 
+app.setName('Night PM');
+
 let activeProjectPath: string | null = null;
 
 function sendToWindow(win: BrowserWindow | null, channel: string, ...args: unknown[]) {
@@ -22,6 +24,7 @@ function sendToWindow(win: BrowserWindow | null, channel: string, ...args: unkno
 }
 
 app.on('ready', () => {
+  void (async () => {
   const template: Electron.MenuItemConstructorOptions[] = [
     { role: 'appMenu' },
     { role: 'fileMenu' },
@@ -36,15 +39,15 @@ app.on('ready', () => {
   registerShortcuts();
   createMainWindow();
 
-  const settings = loadSettings();
+  const settings = await loadSettings();
   activeProjectPath = settings.selectedProjectPath || null;
 
   ipcMain.handle('settings:get', () => loadSettings());
-  ipcMain.handle('settings:set', (_event, newSettings: Record<string, unknown>) => saveSettings(newSettings));
+  ipcMain.handle('settings:set', async (_event, newSettings: Record<string, unknown>) => saveSettings(newSettings as Parameters<typeof saveSettings>[0]));
 
-  ipcMain.handle('app:setActiveProject', (_event, projectPath: string) => {
+  ipcMain.handle('app:setActiveProject', async (_event, projectPath: string) => {
     activeProjectPath = projectPath;
-    saveSettings({ selectedProjectPath: projectPath });
+    await saveSettings({ selectedProjectPath: projectPath });
   });
 
   // ── Provider detection ──
@@ -55,7 +58,7 @@ app.on('ready', () => {
   ipcMain.handle('ai:thought', async (_event, text: string) => {
     if (!activeProjectPath) {
       const win = getThoughtsWindow();
-      sendToWindow(win, 'ai:message', { type: 'error', message: 'No project selected. Set an active project first.' });
+      sendToWindow(win, 'ai:message', { type: 'error', message: 'No project selected. Open a directory in the sidebar, then double-click a project folder or right-click it and choose "Set as Active Project".' });
       return;
     }
 
@@ -91,8 +94,11 @@ app.on('ready', () => {
 
   // ── AI: Console ──
   ipcMain.handle('ai:console-run', async (event, command: string) => {
-    if (!activeProjectPath) return;
     const win = BrowserWindow.fromWebContents(event.sender);
+    if (!activeProjectPath) {
+      if (win) sendToWindow(win, 'ai:console-message', { type: 'error', message: 'No project selected. Open a directory in the sidebar, then double-click a project folder or right-click it and choose "Set as Active Project".' });
+      return;
+    }
     if (!win) return;
     const send = (ch: string, ...args: unknown[]) => sendToWindow(win, ch, ...args);
 
@@ -129,6 +135,7 @@ app.on('ready', () => {
       { isThought: true, resumeSessionId: sessionId },
     );
   });
+  })();
 });
 
 app.on('window-all-closed', () => {

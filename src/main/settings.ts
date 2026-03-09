@@ -2,10 +2,12 @@ import { app } from 'electron';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { ProviderId } from './providers/types';
+import { loadSecrets, setSecret } from './keychain';
+import type { SecretKey } from './keychain';
 
 export interface ClaudeSettings {
-  authMode: 'vertex' | 'api-key';
-  anthropicApiKey: string;
+  authMode: 'auto' | 'vertex' | 'api-key';
+  anthropicApiKey: string;  // loaded from keychain at runtime, never saved to disk
   vertexProjectId: string;
   vertexRegion: string;
   model: string;
@@ -14,18 +16,18 @@ export interface ClaudeSettings {
 }
 
 export interface GeminiSettings {
-  apiKey: string;
+  apiKey: string;           // loaded from keychain at runtime, never saved to disk
   model: string;
 }
 
 export interface CodexSettings {
-  apiKey: string;
+  apiKey: string;           // loaded from keychain at runtime, never saved to disk
   model: string;
 }
 
 export interface OpenCodeSettings {
   provider: string;
-  apiKey: string;
+  apiKey: string;           // loaded from keychain at runtime, never saved to disk
   model: string;
 }
 
@@ -44,51 +46,54 @@ export interface AppSettings {
   theme: 'light' | 'dark';
 }
 
-const DEFAULTS: AppSettings = {
-  provider: '' as ProviderId,
+// What actually gets written to / read from the JSON file on disk.
+// API keys are deliberately absent — they live in the OS keychain.
+type PersistedSettings = Omit<AppSettings,
+  'claude' | 'gemini' | 'codex' | 'opencode'
+> & {
+  claude: Omit<ClaudeSettings, 'anthropicApiKey'>;
+  gemini: Omit<GeminiSettings, 'apiKey'>;
+  codex: Omit<CodexSettings, 'apiKey'>;
+  opencode: Omit<OpenCodeSettings, 'apiKey'>;
+};
 
+const DISK_DEFAULTS: PersistedSettings = {
+  provider: '' as ProviderId,
   claude: {
-    authMode: 'vertex',
-    anthropicApiKey: '',
+    authMode: 'auto',
     vertexProjectId: '',
     vertexRegion: 'global',
     model: '',
     permissionMode: 'bypassPermissions',
     effort: 'high',
   },
-  gemini: {
-    apiKey: '',
-    model: '',
-  },
-  codex: {
-    apiKey: '',
-    model: '',
-  },
-  opencode: {
-    provider: 'anthropic',
-    apiKey: '',
-    model: '',
-  },
-
+  gemini: { model: '' },
+  codex: { model: '' },
+  opencode: { provider: 'anthropic', model: '' },
   maxTurns: 25,
   skills: [],
   lastProjectPath: '',
   selectedProjectPath: '',
-  theme: 'dark',
+  theme: 'light',
 };
 
-let cached: AppSettings | null = null;
+let diskCached: PersistedSettings | null = null;
 
 function getSettingsPath(): string {
   return path.join(app.getPath('userData'), 'night-pm-settings.json');
 }
 
-function migrateV1(parsed: Record<string, unknown>): Record<string, unknown> {
-  if (parsed.claude) return parsed;
+function migrateDiskV1(parsed: Record<string, unknown>): PersistedSettings {
+  // Already in new shape
+  if (parsed.claude && typeof (parsed.claude as Record<string, unknown>).authMode === 'string') {
+    return deepMerge(
+      DISK_DEFAULTS as unknown as Record<string, unknown>,
+      parsed,
+    ) as unknown as PersistedSettings;
+  }
 
   const claude: Record<string, unknown> = {
-    authMode: parsed.authMode ?? 'vertex',
-    anthropicApiKey: parsed.anthropicApiKey ?? parsed.geminiApiKey ?? '',
+    authMode: parsed.authMode ?? 'auto',
     vertexProjectId: parsed.vertexProjectId ?? '',
     vertexRegion: parsed.vertexRegion ?? 'global',
     model: parsed.claudeModel ?? '',
@@ -96,20 +101,21 @@ function migrateV1(parsed: Record<string, unknown>): Record<string, unknown> {
     effort: parsed.effort ?? 'high',
   };
 
-  const migrated: Record<string, unknown> = {
+  return deepMerge(DISK_DEFAULTS as unknown as Record<string, unknown>, {
     provider: parsed.provider ?? 'claude',
     claude,
-    gemini: parsed.gemini ?? DEFAULTS.gemini,
-    codex: parsed.codex ?? DEFAULTS.codex,
-    opencode: parsed.opencode ?? DEFAULTS.opencode,
+    gemini: { model: (parsed.gemini as Record<string, unknown> | undefined)?.model ?? '' },
+    codex: { model: (parsed.codex as Record<string, unknown> | undefined)?.model ?? '' },
+    opencode: {
+      provider: (parsed.opencode as Record<string, unknown> | undefined)?.provider ?? 'anthropic',
+      model: (parsed.opencode as Record<string, unknown> | undefined)?.model ?? '',
+    },
     maxTurns: parsed.maxTurns ?? 25,
     skills: parsed.skills ?? [],
     lastProjectPath: parsed.lastProjectPath ?? '',
     selectedProjectPath: parsed.selectedProjectPath ?? '',
-    theme: (parsed.theme as 'light' | 'dark') ?? 'dark',
-  };
-
-  return migrated;
+    theme: (parsed.theme as 'light' | 'dark') ?? 'light',
+  }) as unknown as PersistedSettings;
 }
 
 function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
@@ -127,27 +133,96 @@ function deepMerge(target: Record<string, unknown>, source: Record<string, unkno
   return result;
 }
 
-export function loadSettings(): AppSettings {
-  if (cached) return cached;
+function loadDiskSettings(): PersistedSettings {
+  if (diskCached) return diskCached;
   try {
     const raw = fs.readFileSync(getSettingsPath(), 'utf-8');
-    let parsed = JSON.parse(raw);
-    parsed = migrateV1(parsed);
-    cached = deepMerge(DEFAULTS as unknown as Record<string, unknown>, parsed) as unknown as AppSettings;
+    let parsed = JSON.parse(raw) as Record<string, unknown>;
+    // Strip any API keys that may have been written by old versions
+    if (parsed.claude) delete (parsed.claude as Record<string, unknown>).anthropicApiKey;
+    if (parsed.gemini) delete (parsed.gemini as Record<string, unknown>).apiKey;
+    if (parsed.codex) delete (parsed.codex as Record<string, unknown>).apiKey;
+    if (parsed.opencode) delete (parsed.opencode as Record<string, unknown>).apiKey;
+    diskCached = migrateDiskV1(parsed);
   } catch {
-    cached = { ...DEFAULTS };
+    diskCached = { ...DISK_DEFAULTS };
   }
-  return cached;
+  return diskCached;
 }
 
-export function saveSettings(settings: Partial<AppSettings>): AppSettings {
-  const current = loadSettings();
-  const merged = deepMerge(current as unknown as Record<string, unknown>, settings as unknown as Record<string, unknown>) as unknown as AppSettings;
+function saveDiskSettings(settings: Partial<PersistedSettings>): PersistedSettings {
+  const current = loadDiskSettings();
+  const merged = deepMerge(
+    current as unknown as Record<string, unknown>,
+    settings as unknown as Record<string, unknown>,
+  ) as unknown as PersistedSettings;
   fs.writeFileSync(getSettingsPath(), JSON.stringify(merged, null, 2), 'utf-8');
-  cached = merged;
+  diskCached = merged;
   return merged;
 }
 
-export function getSetting<K extends keyof AppSettings>(key: K): AppSettings[K] {
-  return loadSettings()[key];
+// ─── Public API ──────────────────────────────────────────────────────────────
+
+// Async: merges disk settings with secrets from keychain.
+export async function loadSettings(): Promise<AppSettings> {
+  const disk = loadDiskSettings();
+  const secrets = await loadSecrets();
+
+  return {
+    ...disk,
+    claude: { ...disk.claude, anthropicApiKey: secrets['claude.anthropicApiKey'] },
+    gemini: { ...disk.gemini, apiKey: secrets['gemini.apiKey'] },
+    codex: { ...disk.codex, apiKey: secrets['codex.apiKey'] },
+    opencode: { ...disk.opencode, apiKey: secrets['opencode.apiKey'] },
+  };
+}
+
+// Async: persists non-secret fields to disk, secrets to keychain.
+export async function saveSettings(settings: Partial<AppSettings>): Promise<AppSettings> {
+  // Extract API keys before writing to disk
+  const keychainWrites: Promise<void>[] = [];
+
+  if (settings.claude?.anthropicApiKey !== undefined) {
+    keychainWrites.push(setSecret('claude.anthropicApiKey', settings.claude.anthropicApiKey));
+  }
+  if (settings.gemini?.apiKey !== undefined) {
+    keychainWrites.push(setSecret('gemini.apiKey', settings.gemini.apiKey));
+  }
+  if (settings.codex?.apiKey !== undefined) {
+    keychainWrites.push(setSecret('codex.apiKey', settings.codex.apiKey));
+  }
+  if (settings.opencode?.apiKey !== undefined) {
+    keychainWrites.push(setSecret('opencode.apiKey', settings.opencode.apiKey));
+  }
+
+  // Build the disk-safe copy (strip API keys)
+  const diskSafe: Partial<PersistedSettings> = { ...settings } as Partial<PersistedSettings>;
+  if (diskSafe.claude) diskSafe.claude = { ...diskSafe.claude } as Omit<ClaudeSettings, 'anthropicApiKey'>;
+  if (diskSafe.gemini) diskSafe.gemini = { ...diskSafe.gemini } as Omit<GeminiSettings, 'apiKey'>;
+  if (diskSafe.codex) diskSafe.codex = { ...diskSafe.codex } as Omit<CodexSettings, 'apiKey'>;
+  if (diskSafe.opencode) diskSafe.opencode = { ...diskSafe.opencode } as Omit<OpenCodeSettings, 'apiKey'>;
+
+  delete (diskSafe.claude as Partial<ClaudeSettings> | undefined)?.anthropicApiKey;
+  delete (diskSafe.gemini as Partial<GeminiSettings> | undefined)?.apiKey;
+  delete (diskSafe.codex as Partial<CodexSettings> | undefined)?.apiKey;
+  delete (diskSafe.opencode as Partial<OpenCodeSettings> | undefined)?.apiKey;
+
+  await Promise.all(keychainWrites);
+  saveDiskSettings(diskSafe);
+  return loadSettings();
+}
+
+// Synchronous convenience used by providers that can't await at call time.
+// Secrets won't be included — callers that need keys should use loadSettings().
+export function loadSettingsSync(): Omit<AppSettings, 'claude' | 'gemini' | 'codex' | 'opencode'> & {
+  claude: Omit<ClaudeSettings, 'anthropicApiKey'>;
+  gemini: Omit<GeminiSettings, 'apiKey'>;
+  codex: Omit<CodexSettings, 'apiKey'>;
+  opencode: Omit<OpenCodeSettings, 'apiKey'>;
+} {
+  return loadDiskSettings();
+}
+
+export function getSetting<K extends keyof PersistedSettings>(key: K): PersistedSettings[K] {
+  return loadDiskSettings()[key];
 }

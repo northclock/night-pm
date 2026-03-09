@@ -5,7 +5,8 @@ import { createGeminiProvider } from './providers/gemini';
 import { createCodexProvider } from './providers/codex';
 import { createOpenCodeProvider } from './providers/opencode';
 import type { AIProvider, ProviderId, MessageCallback, SessionInfo } from './providers/types';
-import { loadSettings } from './settings';
+import { loadSettingsSync } from './settings';
+import { getSecret } from './keychain';
 
 const NIGHT_PM_INSTRUCTIONS = `You are Night PM, a calm and intelligent personal product management assistant.
 You have tools for managing the user's project data (contacts, todos, calendar, thoughts).
@@ -52,11 +53,12 @@ const providers = new Map<ProviderId, AIProvider>();
 function initProviders() {
   if (providers.size > 0) return;
 
-  providers.set('claude', createClaudeProvider(() => {
-    const s = loadSettings();
+  providers.set('claude', createClaudeProvider(async () => {
+    const s = loadSettingsSync();
+    const anthropicApiKey = await getSecret('claude.anthropicApiKey');
     return {
       authMode: s.claude.authMode,
-      anthropicApiKey: s.claude.anthropicApiKey,
+      anthropicApiKey,
       vertexProjectId: s.claude.vertexProjectId,
       vertexRegion: s.claude.vertexRegion,
       model: s.claude.model,
@@ -67,25 +69,28 @@ function initProviders() {
     };
   }));
 
-  providers.set('gemini', createGeminiProvider(() => {
-    const s = loadSettings();
-    return { apiKey: s.gemini.apiKey, model: s.gemini.model };
+  providers.set('gemini', createGeminiProvider(async () => {
+    const s = loadSettingsSync();
+    const apiKey = await getSecret('gemini.apiKey');
+    return { apiKey, model: s.gemini.model };
   }));
 
-  providers.set('codex', createCodexProvider(() => {
-    const s = loadSettings();
-    return { apiKey: s.codex.apiKey, model: s.codex.model };
+  providers.set('codex', createCodexProvider(async () => {
+    const s = loadSettingsSync();
+    const apiKey = await getSecret('codex.apiKey');
+    return { apiKey, model: s.codex.model };
   }));
 
-  providers.set('opencode', createOpenCodeProvider(() => {
-    const s = loadSettings();
-    return { provider: s.opencode.provider, apiKey: s.opencode.apiKey, model: s.opencode.model };
+  providers.set('opencode', createOpenCodeProvider(async () => {
+    const s = loadSettingsSync();
+    const apiKey = await getSecret('opencode.apiKey');
+    return { provider: s.opencode.provider, apiKey, model: s.opencode.model };
   }));
 }
 
 function getActiveProvider(): AIProvider {
   initProviders();
-  const settings = loadSettings();
+  const settings = loadSettingsSync();
   const provider = providers.get(settings.provider);
   if (!provider) throw new Error(`Unknown provider: ${settings.provider}`);
   return provider;
@@ -138,5 +143,5 @@ export async function listSessions(projectPath: string): Promise<SessionInfo[]> 
 }
 
 export function getActiveProviderId(): ProviderId {
-  return loadSettings().provider;
+  return loadSettingsSync().provider;
 }

@@ -12,7 +12,7 @@ import { useAppStore } from '../../store';
 
 const DEFAULT_SETTINGS: AppSettings = {
   provider: 'claude',
-  claude: { authMode: 'vertex', anthropicApiKey: '', vertexProjectId: '', vertexRegion: 'global', model: '', permissionMode: 'bypassPermissions', effort: 'high' },
+  claude: { authMode: 'auto', anthropicApiKey: '', vertexProjectId: '', vertexRegion: 'global', model: '', permissionMode: 'bypassPermissions', effort: 'high' },
   gemini: { apiKey: '', model: 'gemini-2.5-pro' },
   codex: { apiKey: '', model: '' },
   opencode: { provider: 'anthropic', apiKey: '', model: '' },
@@ -253,13 +253,17 @@ function ClaudeConfig({ settings, update, showKey, setShowKey }: ConfigProps) {
       <div className="space-y-4">
         <div className="space-y-1.5">
           <Label>Auth Mode</Label>
-          <Select value={c.authMode} onValueChange={(v) => set({ authMode: v as 'vertex' | 'api-key' })}>
+          <Select value={c.authMode} onValueChange={(v) => set({ authMode: v as 'auto' | 'vertex' | 'api-key' })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
+              <SelectItem value="auto">Auto (use CLI&apos;s own auth)</SelectItem>
               <SelectItem value="vertex">Vertex AI</SelectItem>
               <SelectItem value="api-key">API Key</SelectItem>
             </SelectContent>
           </Select>
+          {c.authMode === 'auto' && (
+            <p className="text-[11px] text-muted-foreground">Uses whatever authentication your Claude CLI already has configured.</p>
+          )}
         </div>
 
         {c.authMode === 'api-key' ? (
@@ -267,7 +271,7 @@ function ClaudeConfig({ settings, update, showKey, setShowKey }: ConfigProps) {
             <Label>Anthropic API Key</Label>
             <ApiKeyField value={c.anthropicApiKey} onChange={(v) => set({ anthropicApiKey: v })} showKey={showKey} setShowKey={setShowKey} placeholder="sk-ant-..." />
           </div>
-        ) : (
+        ) : c.authMode === 'vertex' ? (
           <>
             <div className="space-y-1.5">
               <Label>Vertex Project ID</Label>
@@ -278,7 +282,7 @@ function ClaudeConfig({ settings, update, showKey, setShowKey }: ConfigProps) {
               <Input value={c.vertexRegion} onChange={(e) => set({ vertexRegion: e.target.value })} placeholder="global" />
             </div>
           </>
-        )}
+        ) : null}
 
         <div className="space-y-1.5">
           <Label>Model</Label>
@@ -289,20 +293,18 @@ function ClaudeConfig({ settings, update, showKey, setShowKey }: ConfigProps) {
               <SelectGroup>
                 <SelectLabel>Opus</SelectLabel>
                 <SelectItem value="claude-opus-4-6">Claude Opus 4.6</SelectItem>
-                <SelectItem value="claude-opus-4-0">Claude Opus 4</SelectItem>
+                <SelectItem value="claude-opus-4-5-20251101">Claude Opus 4.5</SelectItem>
+                <SelectItem value="claude-opus-4-20250514">Claude Opus 4</SelectItem>
               </SelectGroup>
               <SelectGroup>
                 <SelectLabel>Sonnet</SelectLabel>
                 <SelectItem value="claude-sonnet-4-6">Claude Sonnet 4.6</SelectItem>
-                <SelectItem value="claude-sonnet-4-5">Claude Sonnet 4.5</SelectItem>
-                <SelectItem value="claude-sonnet-4-0">Claude Sonnet 4</SelectItem>
-                <SelectItem value="claude-3-7-sonnet">Claude 3.7 Sonnet</SelectItem>
-                <SelectItem value="claude-3-5-sonnet">Claude 3.5 Sonnet</SelectItem>
+                <SelectItem value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5</SelectItem>
+                <SelectItem value="claude-sonnet-4-20250514">Claude Sonnet 4</SelectItem>
               </SelectGroup>
               <SelectGroup>
                 <SelectLabel>Haiku</SelectLabel>
-                <SelectItem value="claude-haiku-4-0">Claude Haiku 4</SelectItem>
-                <SelectItem value="claude-3-5-haiku">Claude 3.5 Haiku</SelectItem>
+                <SelectItem value="claude-haiku-4-5">Claude Haiku 4.5</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -349,15 +351,24 @@ function GeminiConfig({ settings, update, showKey, setShowKey }: ConfigProps) {
         <div className="space-y-1.5">
           <Label>API Key</Label>
           <ApiKeyField value={g.apiKey} onChange={(v) => set({ apiKey: v })} showKey={showKey} setShowKey={setShowKey} placeholder="AIza..." />
+          <p className="text-[11px] text-muted-foreground">Optional if your Gemini CLI is already authenticated.</p>
         </div>
         <div className="space-y-1.5">
           <Label>Model</Label>
           <Select value={g.model || 'gemini-2.5-pro'} onValueChange={(v) => set({ model: v })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
-              <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
-              <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+              <SelectGroup>
+                <SelectLabel>Gemini 3.x</SelectLabel>
+                <SelectItem value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</SelectItem>
+                <SelectItem value="gemini-3-flash-preview">Gemini 3 Flash (Preview)</SelectItem>
+                <SelectItem value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite (Preview)</SelectItem>
+              </SelectGroup>
+              <SelectGroup>
+                <SelectLabel>Gemini 2.5</SelectLabel>
+                <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
+                <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
+              </SelectGroup>
             </SelectContent>
           </Select>
         </div>
@@ -377,10 +388,27 @@ function CodexConfig({ settings, update, showKey, setShowKey }: ConfigProps) {
         <div className="space-y-1.5">
           <Label>API Key</Label>
           <ApiKeyField value={cx.apiKey} onChange={(v) => set({ apiKey: v })} showKey={showKey} setShowKey={setShowKey} placeholder="sk-..." />
+          <p className="text-[11px] text-muted-foreground">Optional if your Codex CLI is already authenticated.</p>
         </div>
         <div className="space-y-1.5">
           <Label>Model</Label>
-          <Input value={cx.model} onChange={(e) => set({ model: e.target.value })} placeholder="e.g. codex-mini-latest" />
+          <Select value={cx.model || 'default'} onValueChange={(v) => set({ model: v === 'default' ? '' : v })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Default (CLI default)</SelectItem>
+              <SelectGroup>
+                <SelectLabel>GPT-5.x</SelectLabel>
+                <SelectItem value="gpt-5.4">GPT-5.4</SelectItem>
+                <SelectItem value="gpt-5.3-codex">GPT-5.3 Codex</SelectItem>
+              </SelectGroup>
+              <SelectGroup>
+                <SelectLabel>Reasoning</SelectLabel>
+                <SelectItem value="o3-pro">o3-pro</SelectItem>
+                <SelectItem value="o3">o3</SelectItem>
+                <SelectItem value="o4-mini">o4-mini</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
         </div>
       </div>
     </section>
@@ -409,10 +437,11 @@ function OpenCodeConfig({ settings, update, showKey, setShowKey }: ConfigProps) 
         <div className="space-y-1.5">
           <Label>API Key</Label>
           <ApiKeyField value={oc.apiKey} onChange={(v) => set({ apiKey: v })} showKey={showKey} setShowKey={setShowKey} placeholder="API key..." />
+          <p className="text-[11px] text-muted-foreground">Optional if your OpenCode CLI is already authenticated.</p>
         </div>
         <div className="space-y-1.5">
           <Label>Model</Label>
-          <Input value={oc.model} onChange={(e) => set({ model: e.target.value })} placeholder="e.g. claude-sonnet-4-6" />
+          <Input value={oc.model} onChange={(e) => set({ model: e.target.value })} placeholder="e.g. claude-sonnet-4-6, gpt-5.4" />
         </div>
       </div>
     </section>

@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { PaperPlaneTilt, Brain, X, Stop, Wrench, Lightning, CircleNotch, CaretDown, CaretRight, Bug } from '@phosphor-icons/react';
+import { PaperPlaneTilt, X, Stop, Wrench, Lightning, CircleNotch, CaretDown, CaretRight, Bug } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Markdown } from '@/components/ui/markdown';
 import type { AIMessage, AIResult } from '../../types';
 import { cn } from '@/lib/utils';
+import { logoUrl } from '../../assets';
 
 interface ChatEntry {
   id: number;
@@ -29,6 +31,12 @@ export function ThoughtsOverlay() {
 
   useEffect(() => { inputRef.current?.focus(); }, []);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [entries]);
+
+  useEffect(() => {
+    const onFocus = () => { inputRef.current?.focus(); };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
 
   useEffect(() => {
     const cleanups = [
@@ -84,7 +92,7 @@ export function ThoughtsOverlay() {
   return (
     <div className="h-full w-full flex flex-col rounded-xl overflow-hidden bg-background/95 backdrop-blur-sm border border-border shadow-2xl">
       <div className="thoughts-drag flex items-center gap-2 px-4 py-2.5 bg-sidebar/80 border-b border-border cursor-grab active:cursor-grabbing">
-        <Brain size={16} className="text-night-accent2" weight="duotone" />
+        <img src={logoUrl} alt="" className="w-4 h-4 dark:invert" draggable={false} />
         <span className="text-xs font-semibold text-foreground flex-1">Quick Thought</span>
         {hasConversation && (
           <Button variant="ghost" size="xs" className="text-[10px] gap-1 text-muted-foreground" onClick={handleNewSession}>
@@ -112,7 +120,7 @@ export function ThoughtsOverlay() {
         <div className="px-4 py-3 space-y-3">
           {entries.length === 0 && (
             <div className="flex flex-col items-center justify-center text-muted-foreground gap-2 py-10">
-              <Brain size={32} className="text-night-accent2/40" weight="duotone" />
+              <img src={logoUrl} alt="" className="w-8 h-8 opacity-40 dark:invert" draggable={false} />
               <p className="text-xs text-center">Type a thought, task, or note.<br />AI will categorize and act on it.</p>
             </div>
           )}
@@ -148,6 +156,7 @@ export function ThoughtsOverlay() {
         <div className="flex items-center gap-2 bg-secondary border border-border rounded-lg px-3 py-2 focus-within:border-primary transition-colors">
           <Input
             ref={inputRef}
+            autoFocus
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); } if (e.key === 'Escape') hideWindow(); }}
@@ -168,12 +177,16 @@ function MessageBlock({ block, isUser, debug }: { block: AIMessage; isUser: bool
   const [expanded, setExpanded] = useState(false);
 
   if (block.type === 'text') {
+    if (isUser) {
+      return (
+        <div className="rounded-lg px-3 py-2 text-sm whitespace-pre-wrap inline-block bg-primary/20 text-foreground">
+          {block.text}
+        </div>
+      );
+    }
     return (
-      <div className={cn(
-        'rounded-lg px-3 py-2 text-sm whitespace-pre-wrap inline-block',
-        isUser ? 'bg-primary/20 text-foreground' : 'bg-secondary text-foreground',
-      )}>
-        {block.text}
+      <div className="rounded-lg px-3 py-2 text-sm inline-block bg-secondary text-foreground">
+        <Markdown>{block.text}</Markdown>
       </div>
     );
   }

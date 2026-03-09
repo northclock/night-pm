@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Markdown } from '@/components/ui/markdown';
 import { useAppStore } from '../../store';
 import { cn } from '@/lib/utils';
 import type { ClaudeMessage, ClaudeResult, SessionInfo } from '../../types';
@@ -65,7 +66,7 @@ export function ClaudeConsole({ onClose }: ClaudeConsoleProps) {
     const text = input.trim();
     if (!text || isRunning) return;
     if (!selectedProjectPath) {
-      setEntries((prev) => [...prev, { id: ++logId, role: 'system', blocks: [{ type: 'error', message: 'No active project selected.' }] }]);
+      setEntries((prev) => [...prev, { id: ++logId, role: 'system', blocks: [{ type: 'error', message: 'No active project selected. Double-click a project folder in the sidebar or right-click it and choose "Set as Active Project".' }] }]);
       return;
     }
     setInput('');
@@ -199,7 +200,7 @@ function ConsoleBlock({ block }: { block: ClaudeMessage }) {
   const [expanded, setExpanded] = useState(false);
 
   if (block.type === 'text') {
-    return <div className="text-foreground/90 whitespace-pre-wrap text-sm pl-5 mb-1">{block.text}</div>;
+    return <div className="text-sm pl-5 mb-1"><Markdown>{block.text}</Markdown></div>;
   }
   if (block.type === 'tool_use') {
     return (

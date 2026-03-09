@@ -140,7 +140,7 @@ function tryParseJson(raw: string): unknown {
   }
 }
 
-export function createCodexProvider(getConfig: () => CodexConfig): AIProvider {
+export function createCodexProvider(getConfig: () => Promise<CodexConfig>): AIProvider {
   return {
     id: 'codex',
     displayName: 'Codex',
@@ -148,7 +148,7 @@ export function createCodexProvider(getConfig: () => CodexConfig): AIProvider {
     async startSession(opts: StartSessionOpts) {
       this.stopSession(opts.key);
 
-      const cfg = getConfig();
+      const cfg = await getConfig();
       const codex = buildCodexInstance(cfg);
       const threadId = opts.resumeSessionId ?? nextSessionId();
 

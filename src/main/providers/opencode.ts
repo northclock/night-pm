@@ -167,7 +167,7 @@ function parseModel(cfg: OpenCodeConfig): [string, string] {
   return [cfg.provider || 'anthropic', model];
 }
 
-export function createOpenCodeProvider(getConfig: () => OpenCodeConfig): AIProvider {
+export function createOpenCodeProvider(getConfig: () => Promise<OpenCodeConfig>): AIProvider {
   return {
     id: 'opencode',
     displayName: 'OpenCode',
@@ -175,7 +175,7 @@ export function createOpenCodeProvider(getConfig: () => OpenCodeConfig): AIProvi
     async startSession(opts: StartSessionOpts) {
       this.stopSession(opts.key);
 
-      const cfg = getConfig();
+      const cfg = await getConfig();
       let client: OpenCodeClient;
       try {
         client = await ensureClient(cfg);
@@ -248,7 +248,7 @@ export function createOpenCodeProvider(getConfig: () => OpenCodeConfig): AIProvi
       session.progressChannel = progressChannel;
       session.doneChannel = doneChannel;
 
-      const cfg = getConfig();
+      const cfg = await getConfig();
       let client: OpenCodeClient;
       try {
         client = await ensureClient(cfg);
@@ -281,7 +281,7 @@ export function createOpenCodeProvider(getConfig: () => OpenCodeConfig): AIProvi
 
     async listSessions(_projectPath: string): Promise<SessionInfo[]> {
       try {
-        const cfg = getConfig();
+        const cfg = await getConfig();
         const client = await ensureClient(cfg);
         const result = await client.session.list();
         const data = (result as Record<string, unknown>)?.data ?? result;
