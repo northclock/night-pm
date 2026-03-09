@@ -92,6 +92,13 @@ export interface Standup {
   createdOn: string;
 }
 
+export interface ProjectEntry {
+  name: string;
+  description: string;
+  path: string;
+  children: ProjectEntry[];
+}
+
 export interface OpenFile {
   path: string;
   name: string;
@@ -198,7 +205,7 @@ export interface NightAPI {
     set: (settings: Partial<AppSettings>) => Promise<AppSettings>;
   };
   ai: {
-    thought: (text: string, filePath?: string) => Promise<void>;
+    thought: (text: string, filePath?: string, projectPath?: string) => Promise<void>;
     thoughtFollowup: (text: string, filePath?: string) => Promise<void>;
     abort: (filePath?: string) => Promise<void>;
     consoleRun: (command: string) => Promise<void>;
@@ -239,6 +246,7 @@ export interface NightAPI {
   };
   project: {
     scaffold: (parentPath: string, name: string) => Promise<string>;
+    list: () => Promise<ProjectEntry[]>;
   };
 }
 

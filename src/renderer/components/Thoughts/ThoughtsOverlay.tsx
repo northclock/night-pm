@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { PaperPlaneTilt, X, Stop, Wrench, Lightning, CircleNotch, CaretDown, CaretRight, Bug } from '@phosphor-icons/react';
+import { PaperPlaneTilt, X, Stop, Wrench, Lightning, CircleNotch, CaretDown, CaretRight, Bug, Crosshair } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
 import { Markdown } from '@/components/ui/markdown';
-import type { AIMessage, AIResult } from '../../types';
+import type { AIMessage, AIResult, ProjectEntry } from '../../types';
 import { cn } from '@/lib/utils';
 import { logoUrl } from '../../assets';
 
@@ -19,6 +18,15 @@ let entryId = 0;
 
 function hideWindow() { window.nightAPI.ai.hide(); }
 
+function flattenProjects(entries: ProjectEntry[]): { name: string; path: string }[] {
+  const result: { name: string; path: string }[] = [];
+  for (const e of entries) {
+    result.push({ name: e.name, path: e.path });
+    if (e.children.length > 0) result.push(...flattenProjects(e.children));
+  }
+  return result;
+}
+
 export function ThoughtsOverlay() {
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [input, setInput] = useState('');
@@ -26,6 +34,14 @@ export function ThoughtsOverlay() {
   const [hasConversation, setHasConversation] = useState(false);
   const [lastResult, setLastResult] = useState<AIResult | null>(null);
   const [debug, setDebug] = useState(false);
+  const [taggedProject, setTaggedProject] = useState<{ name: string; path: string } | null>(null);
+
+  const [showMentionMenu, setShowMentionMenu] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionIdx, setMentionIdx] = useState(0);
+  const [projects, setProjects] = useState<{ name: string; path: string }[]>([]);
+  const mentionAnchor = useRef(0);
+
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -36,6 +52,12 @@ export function ThoughtsOverlay() {
     const onFocus = () => { inputRef.current?.focus(); };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
+  }, []);
+
+  useEffect(() => {
+    window.nightAPI.project.list().then((tree) => {
+      setProjects(flattenProjects(tree));
+    });
   }, []);
 
   useEffect(() => {
@@ -66,26 +88,94 @@ export function ThoughtsOverlay() {
     return () => cleanups.forEach((c) => c());
   }, []);
 
+  const filteredProjects = projects.filter((p) =>
+    p.name.toLowerCase().includes(mentionQuery.toLowerCase()),
+  );
+
+  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value;
+    setInput(val);
+
+    const cursorPos = e.target.selectionStart ?? val.length;
+    const textBeforeCursor = val.slice(0, cursorPos);
+    const atIdx = textBeforeCursor.lastIndexOf('@');
+
+    if (atIdx >= 0 && (atIdx === 0 || textBeforeCursor[atIdx - 1] === ' ')) {
+      const query = textBeforeCursor.slice(atIdx + 1);
+      if (!query.includes(' ')) {
+        mentionAnchor.current = atIdx;
+        setMentionQuery(query);
+        setMentionIdx(0);
+        setShowMentionMenu(true);
+        return;
+      }
+    }
+    setShowMentionMenu(false);
+  }
+
+  function selectProject(project: { name: string; path: string }) {
+    const before = input.slice(0, mentionAnchor.current);
+    const afterAtAndQuery = input.slice(mentionAnchor.current).replace(/^@\S*/, '');
+    setInput(before + afterAtAndQuery);
+    setTaggedProject(project);
+    setShowMentionMenu(false);
+    inputRef.current?.focus();
+  }
+
+  function handleInputKeyDown(e: React.KeyboardEvent) {
+    if (showMentionMenu && filteredProjects.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionIdx((i) => Math.min(i + 1, filteredProjects.length - 1));
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionIdx((i) => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        selectProject(filteredProjects[mentionIdx]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowMentionMenu(false);
+        return;
+      }
+    }
+
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); }
+    if (e.key === 'Escape') hideWindow();
+  }
+
   const handleSubmit = useCallback(async () => {
     const text = input.trim();
     if (!text || isProcessing) return;
+
+    const projectOverride = taggedProject;
+    const displayText = projectOverride ? `@${projectOverride.name} ${text}` : text;
+
     setInput('');
-    setEntries((prev) => [...prev, { id: ++entryId, role: 'user', blocks: [{ type: 'text', text }] }]);
+    setTaggedProject(null);
+    setEntries((prev) => [...prev, { id: ++entryId, role: 'user', blocks: [{ type: 'text', text: displayText }] }]);
     setIsProcessing(true);
     setLastResult(null);
 
     if (hasConversation) {
       await window.nightAPI.ai.thoughtFollowup(text);
     } else {
-      await window.nightAPI.ai.thought(text);
+      await window.nightAPI.ai.thought(text, undefined, projectOverride?.path);
       setHasConversation(true);
     }
-  }, [input, isProcessing, hasConversation]);
+  }, [input, isProcessing, hasConversation, taggedProject]);
 
   function handleNewSession() {
     setEntries([]);
     setHasConversation(false);
     setLastResult(null);
+    setTaggedProject(null);
     window.nightAPI.ai.abort();
   }
 
@@ -122,6 +212,7 @@ export function ThoughtsOverlay() {
             <div className="flex flex-col items-center justify-center text-muted-foreground gap-2 py-10">
               <img src={logoUrl} alt="" className="w-8 h-8 opacity-40 dark:invert" draggable={false} />
               <p className="text-xs text-center">Type a thought, task, or note.<br />AI will categorize and act on it.</p>
+              <p className="text-[10px] text-muted-foreground/50">Type <kbd className="px-1 py-0.5 bg-muted rounded text-[9px]">@</kbd> to tag a project</p>
             </div>
           )}
           {entries.map((entry) => (
@@ -152,14 +243,47 @@ export function ThoughtsOverlay() {
         </div>
       )}
 
-      <div className="px-3 pb-3 pt-1">
+      <div className="px-3 pb-3 pt-1 relative">
+        {showMentionMenu && filteredProjects.length > 0 && (
+          <div className="absolute bottom-full left-3 right-3 mb-1 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50">
+            <ScrollArea className="max-h-[160px]">
+              {filteredProjects.map((p, i) => (
+                <button
+                  key={p.path}
+                  className={cn(
+                    'w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-accent transition-colors',
+                    i === mentionIdx && 'bg-accent',
+                  )}
+                  onMouseDown={(e) => { e.preventDefault(); selectProject(p); }}
+                  onMouseEnter={() => setMentionIdx(i)}
+                >
+                  <Crosshair size={12} className="text-primary shrink-0" />
+                  <span className="truncate font-medium">{p.name}</span>
+                </button>
+              ))}
+            </ScrollArea>
+          </div>
+        )}
+
+        {taggedProject && (
+          <div className="flex items-center gap-1.5 mb-1.5 ml-1">
+            <div className="flex items-center gap-1 bg-primary/15 text-primary rounded-md px-2 py-0.5 text-[10px] font-medium">
+              <Crosshair size={10} />
+              {taggedProject.name}
+              <button onClick={() => setTaggedProject(null)} className="ml-0.5 hover:text-destructive">
+                <X size={8} />
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center gap-2 bg-secondary border border-border rounded-lg px-3 py-2 focus-within:border-primary transition-colors">
           <Input
             ref={inputRef}
             autoFocus
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); } if (e.key === 'Escape') hideWindow(); }}
+            onChange={handleInputChange}
+            onKeyDown={handleInputKeyDown}
             placeholder={hasConversation ? 'Follow up...' : 'Enter a thought...'}
             className="border-0 bg-transparent shadow-none focus-visible:ring-0 h-auto p-0 text-sm"
             disabled={isProcessing}

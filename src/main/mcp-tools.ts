@@ -11,7 +11,7 @@ interface ProjectMcpOptions {
   setActiveProject?: (projectPath: string) => void;
 }
 
-async function scanProjectTree(dir: string): Promise<Record<string, unknown>[]> {
+export async function scanProjectTree(dir: string): Promise<Record<string, unknown>[]> {
   const results: Record<string, unknown>[] = [];
   let entries: Awaited<ReturnType<typeof fs.readdir>>;
   try {

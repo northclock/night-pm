@@ -6,6 +6,7 @@ import { registerShortcuts, unregisterShortcuts } from './main/shortcuts';
 import { startConversation, sendFollowup, stopConversation, listSessions, getActiveProviderId } from './main/engine';
 import { loadSettings, saveSettings } from './main/settings';
 import { detectProviders } from './main/detect-providers';
+import { scanProjectTree } from './main/mcp-tools';
 import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 
@@ -63,15 +64,27 @@ app.on('ready', () => {
   ipcMain.handle('ai:detect-providers', () => detectProviders());
   ipcMain.handle('ai:get-active-provider', () => getActiveProviderId());
 
+  // ── Project listing ──
+  ipcMain.handle('project:list', async () => {
+    if (!rootDirPath) return [];
+    return scanProjectTree(rootDirPath);
+  });
+
   // ── AI: Thoughts (also handles doc chat via optional filePath) ──
-  ipcMain.handle('ai:thought', async (event, text: string, filePath?: string) => {
+  ipcMain.handle('ai:thought', async (event, text: string, filePath?: string, projectPath?: string) => {
     const win = BrowserWindow.fromWebContents(event.sender) || getThoughtsWindow();
-    if (!activeProjectPath) {
+
+    if (projectPath) {
+      setActiveProject(projectPath);
+    }
+
+    const targetProject = activeProjectPath;
+    if (!targetProject) {
       sendToWindow(win, 'ai:message', { type: 'error', message: 'No project selected. Open a directory in the sidebar, then double-click a project folder or right-click it and choose "Set as Active Project".' });
       return;
     }
 
-    const thoughtsPath = path.join(activeProjectPath, 'thoughts.json');
+    const thoughtsPath = path.join(targetProject, 'thoughts.json');
     let thoughts: unknown[] = [];
     try {
       const raw = await fsPromises.readFile(thoughtsPath, 'utf-8');
@@ -89,7 +102,7 @@ app.on('ready', () => {
       : text;
 
     await startConversation(
-      key, activeProjectPath, prompt, send,
+      key, targetProject, prompt, send,
       'ai:message', 'ai:progress', 'ai:done',
       { isThought: true, rootPath: rootDirPath ?? undefined, setActiveProject },
     );

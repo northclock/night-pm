@@ -26,8 +26,8 @@ contextBridge.exposeInMainWorld("nightAPI", {
     set: (s: Record<string, unknown>) => ipcRenderer.invoke("settings:set", s),
   },
   ai: {
-    thought: (text: string, filePath?: string) =>
-      ipcRenderer.invoke("ai:thought", text, filePath),
+    thought: (text: string, filePath?: string, projectPath?: string) =>
+      ipcRenderer.invoke("ai:thought", text, filePath, projectPath),
     thoughtFollowup: (text: string, filePath?: string) =>
       ipcRenderer.invoke("ai:thought-followup", text, filePath),
     abort: (filePath?: string) => ipcRenderer.invoke("ai:abort", filePath),
@@ -89,5 +89,6 @@ contextBridge.exposeInMainWorld("nightAPI", {
   project: {
     scaffold: (p: string, n: string) =>
       ipcRenderer.invoke("project:scaffold", p, n),
+    list: () => ipcRenderer.invoke("project:list"),
   },
 });
