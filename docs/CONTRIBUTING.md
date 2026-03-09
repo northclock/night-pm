@@ -18,8 +18,8 @@ If your feature requires a setup flow, reconsider the feature. If setup is truly
 
 We can't do everything and that's okay. Features must be simple, concise, and self-explanatory. If a feature needs a tutorial, it's too complex.
 
-- One screen per concept. Todos are a list. Calendar is a grid. Contacts are cards.
-- No settings that users need to understand to use the app. Settings are for power users and provider configuration.
+- One screen per concept. Todos are a list. Calendar is a grid. Contacts are cards. Ideas are cards. Secrets are a list.
+- No settings that users need to understand to use the app. Settings are for power users and provider configuration. Settings autosave -- no manual save button.
 - No nested menus, modal chains, or multi-step processes.
 - If you're adding a button, ask: "Would the user know what this does without a label?" If not, simplify.
 
@@ -30,9 +30,9 @@ Night PM is opinionated and sticks to its core principles:
 **Night PM is a Brainless App.**
 
 - We do NOT run any inference. Zero. The app is a thin UI layer on top of an AI engine (Claude, Gemini, Codex, OpenCode). Users bring their own AI CLI and their own API keys. They don't pay us for LLM usage.
-- **All features are MCP tools.** Every capability (add contact, create todo, schedule event) is exposed as a Model Context Protocol tool. The AI engine calls these tools. The app visualizes the results.
-- **All elements are files.** Projects are folders. Todos, calendar events, contacts, and thoughts are JSON files. Documents are Markdown. There are no proprietary databases. This is intentional: AI engines can read and write files directly without needing a custom tool for every possible file operation. AI CLIs are already good at that.
-- **The user or the AI engine makes the decisions.** Night PM does not decide what to do with a thought. It sends the thought to the AI engine, the AI engine decides whether it's a contact, a task, or a note, and Night PM renders the result.
+- **All features are MCP tools.** Every capability (add contact, create todo, schedule event, add idea, generate standup, discover projects) is exposed as a Model Context Protocol tool. The AI engine calls these tools. The app visualizes the results.
+- **All elements are files.** Projects are folders identified by `project.nipm`. Todos, calendar events, contacts, thoughts, ideas, and secrets are JSON files. Documents are Markdown. There are no proprietary databases. This is intentional: AI engines can read and write files directly without needing a custom tool for every possible file operation. AI CLIs are already good at that.
+- **The user or the AI engine makes the decisions.** Night PM does not decide what to do with a thought. It sends the thought to the AI engine, the AI engine decides whether it's a contact, a task, an idea, a secret, or a note, and Night PM renders the result.
 
 When evaluating a feature request or PR, ask:
 
@@ -80,7 +80,11 @@ npm run test:opencode # OpenCode provider only
 npm run test:watch    # Watch mode
 ```
 
-Provider integration tests live in `src/test/`. They call the real AI SDKs/CLIs using API keys from `.env` and verify that messages flow correctly through the provider adapters. Each test captures all `AIMessage` callbacks emitted by a provider and asserts that text responses, tool use events, and result summaries are present and correctly typed.
+### Resetting Settings
+
+```bash
+npm run reset         # Clears settings file and keychain entries
+```
 
 ## How to Contribute
 
@@ -126,15 +130,17 @@ Renderer (React)  <-->  Main Process (Node.js)  <-->  AI Engine (external CLI)
    UI views              IPC handlers                  MCP tools
    shadcn/ui             Provider adapters            File I/O
    Zustand store         Engine orchestrator
+                         Keychain (API keys)
 ```
 
 ### Key Concepts
 
 - **Provider**: An AI engine adapter (Claude, Gemini, Codex, OpenCode). Each implements the `AIProvider` interface in `src/main/providers/`.
-- **Engine**: The orchestrator (`src/main/engine.ts`) that delegates to the active provider based on settings.
-- **MCP Tools**: The 16 tools exposed via `src/main/mcp-tools.ts` (in-process for Claude) and `mcp-server/` (standalone for external CLIs).
-- **Project**: A filesystem folder containing JSON data files and Markdown documents.
+- **Engine**: The orchestrator (`src/main/engine.ts`) that delegates to the active provider based on settings. Loads project context from `project.nipm` and injects it into every conversation.
+- **MCP Tools**: The 28+ tools exposed via `src/main/mcp-tools.ts` (in-process for Claude) and `mcp-server/` (standalone for external CLIs).
+- **Project**: A filesystem folder identified by a `project.nipm` file. Projects can be nested.
 - **Thought**: A user input that gets sent to the AI engine with the Night PM system prompt. The AI decides what to do with it.
+- **Doc Chat**: An AI chat panel within the markdown editor that provides the current document as context.
 
 ### Adding a New Provider
 
@@ -149,6 +155,40 @@ Renderer (React)  <-->  Main Process (Node.js)  <-->  AI Engine (external CLI)
 1. Add the tool in `src/main/mcp-tools.ts` using the `tool()` helper from the Claude Agent SDK.
 2. Mirror it in `mcp-server/src/tools/` for the standalone server.
 3. Both implementations should read/write the same JSON file format.
+
+### Adding a New Project File Type
+
+1. Add the type interface to `src/renderer/types.ts` (e.g., `Idea`, `Secret`).
+2. Add an empty array to the scaffold in `src/main/ipc-handlers.ts`.
+3. Create a view component in `src/renderer/components/YourType/`.
+4. Route the file to the view in `src/renderer/components/ContentArea/ContentArea.tsx`.
+5. Add MCP tools in `src/main/mcp-tools.ts`.
+6. Add an icon for the file in `src/renderer/components/Sidebar/FileTree.tsx`.
+
+### Project Structure
+
+```
+night-pm/
+  src/
+    main.ts                           # Electron main process
+    main/
+      engine.ts                       # Provider orchestrator + project context
+      mcp-tools.ts                    # 28+ MCP tools (in-process)
+      settings.ts                     # Persistent settings
+      keychain.ts                     # OS keychain for API keys
+      ipc-handlers.ts                 # Filesystem + dir watcher IPC
+      providers/                      # AI provider adapters
+    preload.ts                        # Context bridge
+    renderer/
+      components/
+        Calendar/                     # CalendarView (month/week/day) + AllCalendarsView
+        Ideas/                        # IdeasView (card-based)
+        Secrets/                      # SecretsView (private notes)
+        ProjectInfo/                  # ProjectInfoView (project.nipm editor)
+        Editor/                       # MarkdownEditor + DocChatPanel
+        Settings/                     # SettingsPanel (autosave)
+        ...
+```
 
 ## Code Style
 

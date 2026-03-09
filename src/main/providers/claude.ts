@@ -280,7 +280,11 @@ export function createClaudeProvider(
       const cfg = await getConfig();
       const abortController = new AbortController();
       const inputQueue = new MessageQueue();
-      const mcpServer = createProjectMcpServer(opts.projectPath);
+      const mcpServer = createProjectMcpServer({
+        projectPath: opts.projectPath,
+        rootPath: opts.rootPath,
+        setActiveProject: opts.setActiveProject,
+      });
       const projectMcpServers = loadProjectMcpServers(opts.projectPath);
       const agents = loadProjectAgents(opts.projectPath);
 

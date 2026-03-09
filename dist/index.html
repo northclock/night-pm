@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Night PM</title>
+    <script>
+      try {
+        if (localStorage.getItem("night-pm-theme") === "dark") {
+          document.documentElement.classList.add("dark");
+        }
+      } catch {}
+    </script>
+    <style>
+      #splash {
+        background: #f8fafc;
+        color: #1e293b;
+      }
+      #splash-sub {
+        color: #94a3b8;
+      }
+      #splash-logo {
+        filter: none;
+      }
+      html.dark #splash {
+        background: #0f172a;
+        color: #e2e8f0;
+      }
+      html.dark #splash-sub {
+        color: #64748b;
+      }
+      html.dark #splash-logo {
+        filter: invert(1);
+      }
+      @keyframes splash-pulse {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.7;
+          transform: scale(0.96);
+        }
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/index-DL5yyZrA.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-1C-ORA7f.css">
+  </head>
+  <body class="m-0 p-0 overflow-hidden">
+    <div
+      id="splash"
+      style="
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        transition: opacity 0.4s ease-out;
+      "
+    >
+      <img
+        id="splash-logo"
+        src="/assets/logo-azo0VB5Y.svg"
+        alt=""
+        width="48"
+        height="48"
+        style="animation: splash-pulse 2s ease-in-out infinite"
+      />
+      <div style="text-align: center">
+        <div
+          style="
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+          "
+        >
+          Night PM
+        </div>
+        <div
+          id="splash-sub"
+          style="
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 11px;
+            margin-top: 6px;
+          "
+        >
+          Loading...
+        </div>
+      </div>
+    </div>
+    <div id="root"></div>
+  </body>
+</html>

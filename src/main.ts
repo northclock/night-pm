@@ -16,6 +16,12 @@ if (started) {
 app.setName('Night PM');
 
 let activeProjectPath: string | null = null;
+let rootDirPath: string | null = null;
+
+function setActiveProject(projectPath: string) {
+  activeProjectPath = projectPath;
+  void saveSettings({ selectedProjectPath: projectPath });
+}
 
 function sendToWindow(win: BrowserWindow | null, channel: string, ...args: unknown[]) {
   if (win && !win.isDestroyed()) {
@@ -41,23 +47,26 @@ app.on('ready', () => {
 
   const settings = await loadSettings();
   activeProjectPath = settings.selectedProjectPath || null;
+  rootDirPath = settings.lastProjectPath || null;
 
   ipcMain.handle('settings:get', () => loadSettings());
-  ipcMain.handle('settings:set', async (_event, newSettings: Record<string, unknown>) => saveSettings(newSettings as Parameters<typeof saveSettings>[0]));
+  ipcMain.handle('settings:set', async (_event, newSettings: Record<string, unknown>) => {
+    if (typeof newSettings.lastProjectPath === 'string') rootDirPath = newSettings.lastProjectPath;
+    return saveSettings(newSettings as Parameters<typeof saveSettings>[0]);
+  });
 
   ipcMain.handle('app:setActiveProject', async (_event, projectPath: string) => {
-    activeProjectPath = projectPath;
-    await saveSettings({ selectedProjectPath: projectPath });
+    setActiveProject(projectPath);
   });
 
   // ── Provider detection ──
   ipcMain.handle('ai:detect-providers', () => detectProviders());
   ipcMain.handle('ai:get-active-provider', () => getActiveProviderId());
 
-  // ── AI: Thoughts ──
-  ipcMain.handle('ai:thought', async (_event, text: string) => {
+  // ── AI: Thoughts (also handles doc chat via optional filePath) ──
+  ipcMain.handle('ai:thought', async (event, text: string, filePath?: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || getThoughtsWindow();
     if (!activeProjectPath) {
-      const win = getThoughtsWindow();
       sendToWindow(win, 'ai:message', { type: 'error', message: 'No project selected. Open a directory in the sidebar, then double-click a project folder or right-click it and choose "Set as Active Project".' });
       return;
     }
@@ -68,28 +77,34 @@ app.on('ready', () => {
       const raw = await fsPromises.readFile(thoughtsPath, 'utf-8');
       thoughts = JSON.parse(raw);
     } catch { /* empty */ }
-    thoughts.push({ thought: text, actionsTriggered: [], createdOn: new Date().toISOString() });
+    const logText = filePath ? `Re ${path.basename(filePath)}: ${text}` : text;
+    thoughts.push({ thought: logText, actionsTriggered: [], createdOn: new Date().toISOString() });
     await fsPromises.mkdir(path.dirname(thoughtsPath), { recursive: true });
     await fsPromises.writeFile(thoughtsPath, JSON.stringify(thoughts, null, 2), 'utf-8');
 
-    const win = getThoughtsWindow();
     const send = (ch: string, ...args: unknown[]) => sendToWindow(win, ch, ...args);
+    const key = filePath ? `doc:${filePath}` : 'thought';
+    const prompt = filePath
+      ? `The user is editing the document at: ${filePath}\n\n${text}`
+      : text;
 
     await startConversation(
-      'thought', activeProjectPath, text, send,
+      key, activeProjectPath, prompt, send,
       'ai:message', 'ai:progress', 'ai:done',
-      { isThought: true },
+      { isThought: true, rootPath: rootDirPath ?? undefined, setActiveProject },
     );
   });
 
-  ipcMain.handle('ai:thought-followup', async (_event, text: string) => {
-    const win = getThoughtsWindow();
+  ipcMain.handle('ai:thought-followup', async (event, text: string, filePath?: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || getThoughtsWindow();
     const send = (ch: string, ...args: unknown[]) => sendToWindow(win, ch, ...args);
-    await sendFollowup('thought', text, send, 'ai:message', 'ai:progress', 'ai:done');
+    const key = filePath ? `doc:${filePath}` : 'thought';
+    await sendFollowup(key, text, send, 'ai:message', 'ai:progress', 'ai:done');
   });
 
-  ipcMain.handle('ai:abort', () => {
-    stopConversation('thought');
+  ipcMain.handle('ai:abort', (_event, filePath?: string) => {
+    const key = filePath ? `doc:${filePath}` : 'thought';
+    stopConversation(key);
   });
 
   // ── AI: Console ──
@@ -105,6 +120,7 @@ app.on('ready', () => {
     await startConversation(
       'console', activeProjectPath, command, send,
       'ai:console-message', 'ai:console-progress', 'ai:console-done',
+      { rootPath: rootDirPath ?? undefined, setActiveProject },
     );
   });
 
@@ -132,9 +148,10 @@ app.on('ready', () => {
     await startConversation(
       'thought', activeProjectPath, '', send,
       'ai:message', 'ai:progress', 'ai:done',
-      { isThought: true, resumeSessionId: sessionId },
+      { isThought: true, resumeSessionId: sessionId, rootPath: rootDirPath ?? undefined, setActiveProject },
     );
   });
+
   })();
 });
 

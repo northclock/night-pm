@@ -34,6 +34,7 @@ export type MessageCallback = (channel: string, ...args: unknown[]) => void;
 export interface StartSessionOpts {
   key: string;
   projectPath: string;
+  rootPath?: string;
   initialPrompt: string;
   send: MessageCallback;
   messageChannel: string;
@@ -42,6 +43,7 @@ export interface StartSessionOpts {
   isThought?: boolean;
   resumeSessionId?: string;
   systemInstructions?: string;
+  setActiveProject?: (projectPath: string) => void;
 }
 
 export interface AIProvider {

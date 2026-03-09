@@ -17,12 +17,20 @@ Most PM tools lock your data in proprietary databases and charge for AI features
 - **VS Code-like interface** with a file tree sidebar, tabs, and specialized views
 - **Quick Thought overlay** (Shift+Cmd+Y) -- pops up over any app, captures a thought, and the AI categorizes it into contacts, todos, events, or accomplishments
 - **Multi-turn AI conversations** in the thoughts overlay and the AI console
-- **Calendar view** for `calendar.json`
-- **Todos view** with status tracking (created / blocked / done)
-- **Contacts view** with relationship mapping
-- **Markdown editor** (TipTap) for documents and project info
+- **Calendar views** (month, week, day) with recurring event support and an all-calendars aggregated view across projects
+- **Todos view** with status tracking (created / blocked / done) and date-range filtering
+- **Contacts view** with relationship mapping and duplicate detection
+- **Ideas board** for half-baked thoughts (card-based with tags)
+- **Secrets vault** for private notes (never used in document generation)
+- **Standups** -- ask the AI to generate a standup summary from recent tasks and events
+- **Project identity** (`project.nipm`) -- defines project name, description, your role, and tags; injected into every AI conversation
+- **Nested project discovery** -- AI can discover all projects in your directory tree and switch between them
+- **Markdown editor** (TipTap) with an AI chat side panel for document editing assistance
 - **Multi-provider support** -- switch between Claude, Gemini, Codex, and OpenCode from settings
 - **Per-project MCP** -- each project can define its own MCP server connections
+- **Settings autosave** -- all changes persist immediately, no manual save button
+- **Inline file creation** -- right-click a folder to create a doc, file, folder, or project with an inline name input
+- **Auto-refresh file tree** -- file explorer updates automatically when files change on disk, including renames in nested folders
 - **Light and dark themes**
 
 ## Quick Start
@@ -52,20 +60,24 @@ On first launch, Night PM detects which AI CLIs are available and prompts you to
 ### Create a Project
 
 1. Click **Open** in the sidebar and select a directory, or click **+ New Project** to scaffold one.
-2. A project is just a folder with these files:
+2. You can also right-click any folder in the file tree and select **New Doc**, **New File**, **New Folder**, or **New Project**. Names are entered inline in the tree (no popup dialog).
+3. A project is identified by its `project.nipm` file and contains these files:
 
 ```
 my-project/
-  info.md            # Project context (Markdown)
-  calendar.json      # Events
-  todos.json         # Tasks
-  contacts.json      # People
-  thoughts.json      # Thought log
-  docs/              # Documents (Markdown files)
+  project.nipm         # Project identity (name, description, whoAmI, tags)
+  info.md              # Project context (Markdown)
+  calendar.json        # Events (with recurring event support)
+  todos.json           # Tasks
+  contacts.json        # People
+  thoughts.json        # Thought log
+  ideas.json           # Half-baked ideas
+  secrets.json         # Private notes (excluded from doc generation)
+  docs/                # Documents (Markdown files)
 ```
 
-3. Right-click a project in the file tree and select **Set as Active Project**.
-4. Press **Shift+Cmd+Y** anywhere to open the Quick Thought overlay.
+4. Double-click a project folder or right-click it and select **Set as Active Project**.
+5. Press **Shift+Cmd+Y** anywhere to open the Quick Thought overlay.
 
 ## How It Works
 
@@ -76,7 +88,7 @@ You type a thought
    AI Engine (Claude / Gemini / Codex / OpenCode)
         |
         v
-   MCP Tools (calendar_add_event, contact_add, todo_add_task, ...)
+   MCP Tools (calendar_add_event, contact_add, todo_add_task, idea_add, ...)
         |
         v
    Plain JSON files on disk
@@ -100,6 +112,12 @@ You type a thought
 3. Later, type: *"I talked to Luis about it."*
 4. The AI calls `todo_update_task` to mark it done.
 
+### Example: Standup generation
+
+1. Type: *"Give me a standup update."*
+2. The AI calls `standup_generate` which gathers recent tasks and today's events.
+3. You get a formatted standup summary.
+
 ## AI Providers
 
 Night PM supports four AI providers. Each one has its own configuration section in Settings.
@@ -115,20 +133,20 @@ Switch providers from **Settings > Provider**.
 
 ## MCP Tools
 
-Night PM exposes 16 MCP tools for AI engines to manage project data:
+Night PM exposes 28+ MCP tools for AI engines to manage project data:
 
 ### Calendar
 | Tool | Description |
 |------|-------------|
 | `calendar_list_events` | List all events |
-| `calendar_add_event` | Add an event (title, description, start, end, allDay) |
-| `calendar_update_event` | Update an event by ID |
+| `calendar_add_event` | Add an event (title, description, start, end, allDay, recurrence) |
+| `calendar_update_event` | Update an event by ID (including recurrence) |
 | `calendar_delete_event` | Delete an event by ID |
 
 ### Todos
 | Tool | Description |
 |------|-------------|
-| `todo_list_tasks` | List tasks, optionally filter by status |
+| `todo_list_tasks` | List tasks, filter by status and/or date range (startDate, endDate) |
 | `todo_add_task` | Add a task (title, description, dueDate, status) |
 | `todo_update_task` | Update a task by ID |
 | `todo_delete_task` | Delete a task by ID |
@@ -147,7 +165,33 @@ Night PM exposes 16 MCP tools for AI engines to manage project data:
 |------|-------------|
 | `thought_list` | List all recorded thoughts |
 | `thought_add` | Record a new thought |
-| `project_info` | Read the project's info.md |
+
+### Project
+| Tool | Description |
+|------|-------------|
+| `project_info` | Read project info from project.nipm and info.md |
+| `project_info_update` | Update project identity (name, description, whoAmI, tags) |
+| `project_list` | List all available projects (recursive tree with nested projects) |
+| `project_set_active` | Set the active project by path |
+
+### Ideas
+| Tool | Description |
+|------|-------------|
+| `idea_list` | List all ideas |
+| `idea_add` | Add a half-baked idea (title, description, tags) |
+| `idea_update` | Update an idea by ID |
+| `idea_delete` | Delete an idea by ID |
+
+### Secrets
+| Tool | Description |
+|------|-------------|
+| `secret_list` | List all secrets |
+| `secret_add` | Add a private secret (never used for document generation) |
+
+### Standups
+| Tool | Description |
+|------|-------------|
+| `standup_generate` | Generate a standup summary from recent tasks and calendar events |
 
 ### Standalone MCP Server
 
@@ -174,6 +218,22 @@ Add it to your Gemini CLI config (`~/.gemini/settings.json`):
 
 The server uses `cwd` as the project path by default, or accepts `--project-path` to specify one.
 
+## Project Identity (`project.nipm`)
+
+Each project has a `project.nipm` file (JSON with custom extension) that identifies it:
+
+```json
+{
+  "name": "Product A",
+  "description": "Mobile app for retail",
+  "whoAmI": "Senior PM leading the mobile team",
+  "created": "2026-03-07T...",
+  "tags": ["product", "mobile"]
+}
+```
+
+The `whoAmI` field tells the AI who you are in the context of this project, so it can tailor its responses. This context is automatically injected into every AI conversation (thoughts, console, document chat).
+
 ## Project Instructions
 
 Each project can include instructions that get prepended to the AI's system prompt:
@@ -191,7 +251,7 @@ The shared `AGENT.md` is loaded first, then the provider-specific file (if it ex
 
 ## Testing
 
-Night PM includes integration tests for every AI provider using [Vitest](https://vitest.dev/). The tests call real APIs using keys from `.env` and verify that messages flow correctly through the provider adapters.
+Night PM includes integration tests for every AI provider using [Vitest](https://vitest.dev/).
 
 ```bash
 npm test              # Run all tests
@@ -222,10 +282,11 @@ night-pm/
   src/
     main.ts                           # Electron main process
     main/
-      engine.ts                       # Provider orchestrator
+      engine.ts                       # Provider orchestrator + project context loader
       detect-providers.ts             # CLI availability detection
-      settings.ts                     # Persistent settings
-      mcp-tools.ts                    # In-process MCP tools (Claude)
+      settings.ts                     # Persistent settings (non-secret)
+      keychain.ts                     # OS keychain for API keys
+      mcp-tools.ts                    # In-process MCP tools (28+ tools)
       file-io.ts                      # JSON/text file helpers
       providers/
         types.ts                      # AIProvider interface
@@ -235,41 +296,41 @@ night-pm/
         opencode.ts                   # OpenCode adapter
       windows.ts                      # Window management
       shortcuts.ts                    # Global hotkeys
-      ipc-handlers.ts                 # Filesystem IPC
+      ipc-handlers.ts                 # Filesystem + dir watcher IPC
     preload.ts                        # Context bridge
     renderer/
       App.tsx                         # Root component
       store.ts                        # Zustand state
       types.ts                        # Shared types
       hooks/
-        useTheme.ts                   # Theme persistence (localStorage + settings)
+        useTheme.ts                   # Theme persistence
         useFileWatcher.ts             # File change watcher
       components/
         Layout/                       # App shell, title bar
         Sidebar/                      # File tree, project browser
         TabBar/                       # Open file tabs
-        Editor/                       # TipTap markdown editor
-        Calendar/                     # Calendar view
+        ContentArea/                  # File type routing
+        Editor/                       # TipTap markdown editor + DocChatPanel
+        Calendar/                     # Calendar views (month/week/day) + AllCalendarsView
         Todos/                        # Todo list view
         Contacts/                     # Contacts view
         Thoughts/                     # Thought overlay + list
+        Ideas/                        # Ideas board view
+        Secrets/                      # Secrets vault view
+        ProjectInfo/                  # Project identity editor
         AIConsole/                    # Direct AI console
-        Settings/                     # Settings panel
+        Settings/                     # Settings panel (autosave)
         ProviderSetup/                # First-run provider picker
         ui/                           # shadcn/ui primitives
     test/
-      setup.ts                        # Env loader (.env with export support)
+      setup.ts                        # Env loader
       harness.ts                      # Message capture utilities
-      __mocks__/electron.ts           # Electron stubs for Node tests
+      __mocks__/electron.ts           # Electron stubs
       claude.test.ts                  # Claude provider tests
       gemini.test.ts                  # Gemini provider tests
       codex.test.ts                   # Codex provider tests
       opencode.test.ts                # OpenCode provider tests
   mcp-server/                         # Standalone MCP server
-    src/
-      index.ts                        # stdio entry point
-      tools/                          # Tool definitions
-      utils/                          # File I/O helpers
 ```
 
 ## Tech Stack
@@ -279,6 +340,7 @@ night-pm/
 - **State**: Zustand
 - **AI SDKs**: `@anthropic-ai/claude-agent-sdk`, `@openai/codex-sdk`, `@opencode-ai/sdk`
 - **MCP**: `@modelcontextprotocol/sdk` (standalone server), Claude SDK's `createSdkMcpServer` (in-process)
+- **Security**: `keytar` (OS keychain for API keys)
 - **Testing**: Vitest (provider integration tests)
 - **Icons**: Phosphor Icons
 

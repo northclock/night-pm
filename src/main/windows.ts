@@ -1,11 +1,11 @@
-import { BrowserWindow, screen, ipcMain, nativeImage, app } from 'electron';
-import * as path from 'node:path';
+import { BrowserWindow, screen, ipcMain, nativeImage, app } from "electron";
+import * as path from "node:path";
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
 
 function getAppIcon() {
-  const iconPath = path.join(app.getAppPath(), 'images', 'icon.png');
+  const iconPath = path.join(app.getAppPath(), "images", "icon.png");
   try {
     return nativeImage.createFromPath(iconPath);
   } catch {
@@ -32,17 +32,17 @@ export function createMainWindow() {
     height: 900,
     minWidth: 800,
     minHeight: 600,
-    title: 'Night PM',
-    titleBarStyle: 'hiddenInset',
+    title: "Night PM",
+    titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 12, y: 10 },
-    backgroundColor: '#0b1120',
+    backgroundColor: "#0b1120",
     ...(icon ? { icon } : {}),
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, "preload.js"),
     },
   });
 
-  if (process.platform === 'darwin' && icon) {
+  if (process.platform === "darwin" && icon) {
     app.dock.setIcon(icon);
   }
 
@@ -54,15 +54,15 @@ export function createMainWindow() {
     );
   }
 
-  mainWindow.on('enter-full-screen', () => {
-    mainWindow?.webContents.send('window:fullscreen-changed', true);
+  mainWindow.on("enter-full-screen", () => {
+    mainWindow?.webContents.send("window:fullscreen-changed", true);
   });
 
-  mainWindow.on('leave-full-screen', () => {
-    mainWindow?.webContents.send('window:fullscreen-changed', false);
+  mainWindow.on("leave-full-screen", () => {
+    mainWindow?.webContents.send("window:fullscreen-changed", false);
   });
 
-  mainWindow.on('closed', () => {
+  mainWindow.on("closed", () => {
     mainWindow = null;
   });
 
@@ -92,11 +92,11 @@ export function createThoughtsWindow() {
     skipTaskbar: true,
     resizable: false,
     show: false,
-    backgroundColor: '#00000000',
+    backgroundColor: "#00000000",
     hasShadow: true,
     focusable: true,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, "preload.js"),
     },
   });
 
@@ -107,11 +107,11 @@ export function createThoughtsWindow() {
   } else {
     thoughtsWindow.loadFile(
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
-      { hash: 'thoughts' },
+      { hash: "thoughts" },
     );
   }
 
-  thoughtsWindow.on('closed', () => {
+  thoughtsWindow.on("closed", () => {
     thoughtsWindow = null;
   });
 
@@ -125,7 +125,11 @@ export function hideThoughtsWindow() {
 }
 
 export function toggleThoughtsWindow() {
-  if (thoughtsWindow && !thoughtsWindow.isDestroyed() && thoughtsWindow.isVisible()) {
+  if (
+    thoughtsWindow &&
+    !thoughtsWindow.isDestroyed() &&
+    thoughtsWindow.isVisible()
+  ) {
     thoughtsWindow.hide();
   } else {
     const win = createThoughtsWindow();
@@ -135,7 +139,7 @@ export function toggleThoughtsWindow() {
 }
 
 export function registerWindowIpc() {
-  ipcMain.handle('thoughts:hide', () => {
+  ipcMain.handle("thoughts:hide", () => {
     hideThoughtsWindow();
   });
 }

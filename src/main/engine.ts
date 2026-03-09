@@ -9,17 +9,41 @@ import { loadSettingsSync } from './settings';
 import { getSecret } from './keychain';
 
 const NIGHT_PM_INSTRUCTIONS = `You are Night PM, a calm and intelligent personal product management assistant.
-You have tools for managing the user's project data (contacts, todos, calendar, thoughts).
+You have tools for managing the user's project data (contacts, todos, calendar, thoughts, ideas, secrets, standups).
 When the user shares a thought:
 - If it mentions a person, check if they exist first, then add or update the contact
 - If it describes a task, add it as a todo
 - If it mentions completing something, find the task and mark it done
 - If it's an accomplishment, add it as a completed task
 - If it describes a meeting or event, add a calendar event
+- If it's a half-baked idea, store it with idea_add
+- If it's private/sensitive, store it with secret_add (secrets are NEVER used in document generation; the thought is automatically removed from the thought log)
+- If the user asks for a standup, daily update, or status report, use standup_generate — it compiles tasks and events and saves to standup.json
+- If the thought seems to belong to a different project, use project_list to discover available projects and project_set_active to switch
 - Otherwise, acknowledge the thought naturally
 Be concise and helpful. Always confirm what actions you took.`;
 
-function loadInstructions(projectPath: string, providerId: ProviderId, isThought: boolean): string | undefined {
+function loadProjectContext(projectPath: string): string {
+  const nipmPath = path.join(projectPath, 'project.nipm');
+  try {
+    const raw = fs.readFileSync(nipmPath, 'utf-8');
+    const nipm = JSON.parse(raw) as Record<string, unknown>;
+    const parts: string[] = [];
+    if (nipm.name) parts.push(`Active project: "${nipm.name}"`);
+    if (nipm.description) parts.push(`Description: ${nipm.description}`);
+    if (nipm.whoAmI) parts.push(`Your role: ${nipm.whoAmI}`);
+    if (Array.isArray(nipm.tags) && nipm.tags.length > 0) parts.push(`Tags: ${nipm.tags.join(', ')}`);
+    return parts.length > 0 ? parts.join('\n') : '';
+  } catch {
+    return '';
+  }
+}
+
+function loadInstructions(
+  projectPath: string,
+  providerId: ProviderId,
+  isThought: boolean,
+): string | undefined {
   let shared = '';
   let providerSpecific = '';
 
@@ -41,6 +65,10 @@ function loadInstructions(projectPath: string, providerId: ProviderId, isThought
   try { providerSpecific = fs.readFileSync(overridePath, 'utf-8'); } catch { /* empty */ }
 
   const parts: string[] = [];
+
+  const projectCtx = loadProjectContext(projectPath);
+  if (projectCtx) parts.push(projectCtx);
+
   if (isThought) parts.push(NIGHT_PM_INSTRUCTIONS);
   if (shared) parts.push(shared);
   if (providerSpecific) parts.push(providerSpecific);
@@ -104,10 +132,18 @@ export async function startConversation(
   messageChannel: string,
   progressChannel: string,
   doneChannel: string,
-  options?: { isThought?: boolean; resumeSessionId?: string },
+  options?: {
+    isThought?: boolean;
+    resumeSessionId?: string;
+    rootPath?: string;
+    setActiveProject?: (projectPath: string) => void;
+  },
 ) {
   const provider = getActiveProvider();
-  const instructions = loadInstructions(projectPath, provider.id, options?.isThought ?? false);
+  const instructions = loadInstructions(
+    projectPath, provider.id,
+    options?.isThought ?? false,
+  );
 
   await provider.startSession({
     key, projectPath, initialPrompt, send,
@@ -115,6 +151,8 @@ export async function startConversation(
     isThought: options?.isThought,
     resumeSessionId: options?.resumeSessionId,
     systemInstructions: instructions,
+    rootPath: options?.rootPath,
+    setActiveProject: options?.setActiveProject,
   });
 }
 

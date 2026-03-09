@@ -26,10 +26,11 @@ contextBridge.exposeInMainWorld("nightAPI", {
     set: (s: Record<string, unknown>) => ipcRenderer.invoke("settings:set", s),
   },
   ai: {
-    thought: (text: string) => ipcRenderer.invoke("ai:thought", text),
-    thoughtFollowup: (text: string) =>
-      ipcRenderer.invoke("ai:thought-followup", text),
-    abort: () => ipcRenderer.invoke("ai:abort"),
+    thought: (text: string, filePath?: string) =>
+      ipcRenderer.invoke("ai:thought", text, filePath),
+    thoughtFollowup: (text: string, filePath?: string) =>
+      ipcRenderer.invoke("ai:thought-followup", text, filePath),
+    abort: (filePath?: string) => ipcRenderer.invoke("ai:abort", filePath),
     consoleRun: (cmd: string) => ipcRenderer.invoke("ai:console-run", cmd),
     consoleFollowup: (text: string) =>
       ipcRenderer.invoke("ai:console-followup", text),
@@ -70,6 +71,15 @@ contextBridge.exposeInMainWorld("nightAPI", {
       ipcRenderer.on("fs:fileChanged", handler);
       return () => {
         ipcRenderer.removeListener("fs:fileChanged", handler);
+      };
+    },
+    watchDir: (p: string) => ipcRenderer.invoke("fs:watchDir", p),
+    unwatchDir: (p: string) => ipcRenderer.invoke("fs:unwatchDir", p),
+    onDirChanged: (cb: (dirPath: string) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, p: string) => cb(p);
+      ipcRenderer.on("fs:dirChanged", handler);
+      return () => {
+        ipcRenderer.removeListener("fs:dirChanged", handler);
       };
     },
   },

@@ -21,6 +21,11 @@ export interface CalendarEvent {
   end: string;
   allDay: boolean;
   createdOn: string;
+  recurrence?: {
+    frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+    interval?: number;
+    endDate?: string;
+  };
 }
 
 export interface Todo {
@@ -49,6 +54,41 @@ export interface Contact {
 export interface Thought {
   thought: string;
   actionsTriggered: string[];
+  createdOn: string;
+}
+
+export interface ProjectInfo {
+  name: string;
+  description: string;
+  whoAmI: string;
+  created: string;
+  tags: string[];
+}
+
+export interface Idea {
+  id: string;
+  title: string;
+  description: string;
+  createdOn: string;
+  tags?: string[];
+}
+
+export interface Secret {
+  id: string;
+  text: string;
+  createdOn: string;
+}
+
+export interface Standup {
+  id: string;
+  date: string;
+  startDate?: string;
+  endDate?: string;
+  summary: string;
+  done: string[];
+  inProgress: string[];
+  blocked: string[];
+  events: string[];
   createdOn: string;
 }
 
@@ -158,9 +198,9 @@ export interface NightAPI {
     set: (settings: Partial<AppSettings>) => Promise<AppSettings>;
   };
   ai: {
-    thought: (text: string) => Promise<void>;
-    thoughtFollowup: (text: string) => Promise<void>;
-    abort: () => Promise<void>;
+    thought: (text: string, filePath?: string) => Promise<void>;
+    thoughtFollowup: (text: string, filePath?: string) => Promise<void>;
+    abort: (filePath?: string) => Promise<void>;
     consoleRun: (command: string) => Promise<void>;
     consoleFollowup: (text: string) => Promise<void>;
     consoleAbort: () => Promise<void>;
@@ -190,6 +230,9 @@ export interface NightAPI {
     watch: (filePath: string) => Promise<void>;
     unwatch: (filePath: string) => Promise<void>;
     onFileChanged: (callback: (filePath: string, content: string) => void) => () => void;
+    watchDir: (dirPath: string) => Promise<void>;
+    unwatchDir: (dirPath: string) => Promise<void>;
+    onDirChanged: (callback: (dirPath: string) => void) => () => void;
   };
   dialog: {
     openDirectory: () => Promise<string | null>;

@@ -4,6 +4,7 @@ import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 
 const watchers = new Map<string, fs.FSWatcher>();
+const dirWatchers = new Map<string, fs.FSWatcher>();
 const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 function notifyAllWindows(channel: string, ...args: unknown[]) {
@@ -128,6 +129,29 @@ export function registerIpcHandlers() {
     return fs.existsSync(filePath);
   });
 
+  ipcMain.handle('fs:watchDir', (_event, dirPath: string) => {
+    if (dirWatchers.has(dirPath)) return;
+    try {
+      const watcher = fs.watch(dirPath, { recursive: true }, () => {
+        const key = `dir:${dirPath}`;
+        if (debounceTimers.has(key)) clearTimeout(debounceTimers.get(key)!);
+        debounceTimers.set(key, setTimeout(() => {
+          debounceTimers.delete(key);
+          notifyAllWindows('fs:dirChanged', dirPath);
+        }, 500));
+      });
+      dirWatchers.set(dirPath, watcher);
+    } catch { /* directory may not exist */ }
+  });
+
+  ipcMain.handle('fs:unwatchDir', (_event, dirPath: string) => {
+    const watcher = dirWatchers.get(dirPath);
+    if (watcher) { watcher.close(); dirWatchers.delete(dirPath); }
+    const key = `dir:${dirPath}`;
+    const timer = debounceTimers.get(key);
+    if (timer) { clearTimeout(timer); debounceTimers.delete(key); }
+  });
+
   ipcMain.handle('dialog:openDirectory', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory'],
@@ -145,6 +169,18 @@ export function registerIpcHandlers() {
         recursive: true,
       });
 
+      const nipm = {
+        name,
+        description: 'Project description goes here.',
+        whoAmI: '',
+        created: new Date().toISOString(),
+        tags: [],
+      };
+      await fsPromises.writeFile(
+        path.join(projectPath, 'project.nipm'),
+        JSON.stringify(nipm, null, 2),
+        'utf-8',
+      );
       await fsPromises.writeFile(
         path.join(projectPath, 'info.md'),
         `# ${name}\n\nProject description goes here.\n`,
@@ -167,6 +203,21 @@ export function registerIpcHandlers() {
       );
       await fsPromises.writeFile(
         path.join(projectPath, 'thoughts.json'),
+        '[]',
+        'utf-8',
+      );
+      await fsPromises.writeFile(
+        path.join(projectPath, 'ideas.json'),
+        '[]',
+        'utf-8',
+      );
+      await fsPromises.writeFile(
+        path.join(projectPath, 'secrets.json'),
+        '[]',
+        'utf-8',
+      );
+      await fsPromises.writeFile(
+        path.join(projectPath, 'standup.json'),
         '[]',
         'utf-8',
       );

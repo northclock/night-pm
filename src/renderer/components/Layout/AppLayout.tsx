@@ -7,12 +7,13 @@ import { TabBar } from '../TabBar/TabBar';
 import { ContentArea } from '../ContentArea/ContentArea';
 import { SettingsPanel } from '../Settings/SettingsPanel';
 import { AIConsole } from '../AIConsole/AIConsole';
+import { AllCalendarsView } from '../Calendar/AllCalendarsView';
 import { ProviderSetupDialog } from '../ProviderSetup/ProviderSetupDialog';
 import { useAppStore } from '../../store';
 import type { ProviderAvailability, ProviderId } from '../../types';
 import { logoUrl } from '../../assets';
 
-type OverlayPanel = 'settings' | 'console' | null;
+type OverlayPanel = 'settings' | 'console' | 'all-calendars' | null;
 
 export function AppLayout() {
   const activeFilePath = useAppStore((s) => s.activeFilePath);
@@ -61,6 +62,7 @@ export function AppLayout() {
             <Sidebar
               onOpenSettings={() => openPanel('settings')}
               onOpenConsole={() => openPanel('console')}
+              onOpenAllCalendars={() => openPanel('all-calendars')}
             />
           </Allotment.Pane>
           <Allotment.Pane>
@@ -71,6 +73,8 @@ export function AppLayout() {
                   <SettingsPanel onClose={() => setOverlayPanel(null)} />
                 ) : overlayPanel === 'console' ? (
                   <AIConsole onClose={() => setOverlayPanel(null)} />
+                ) : overlayPanel === 'all-calendars' ? (
+                  <AllCalendarsView onClose={() => setOverlayPanel(null)} />
                 ) : activeFilePath ? (
                   <ContentArea />
                 ) : (

@@ -5,14 +5,16 @@ import { marked } from 'marked';
 import TurndownService from 'turndown';
 import {
   TextB, TextItalic, TextHOne, TextHTwo, TextHThree,
-  ListBullets, ListNumbers, Code, Quotes, Minus, ArrowCounterClockwise, ArrowClockwise, FloppyDisk,
+  ListBullets, ListNumbers, Code, Quotes, Minus, ArrowCounterClockwise, ArrowClockwise, FloppyDisk, ChatCircle,
 } from '@phosphor-icons/react';
+import { Allotment } from 'allotment';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import type { OpenFile } from '../../types';
 import { useAppStore } from '../../store';
+import { DocChatPanel } from './DocChatPanel';
 
 const turndown = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced', bulletListMarker: '-' });
 function markdownToHtml(md: string): string { return marked.parse(md, { async: false }) as string; }
@@ -26,6 +28,7 @@ export function MarkdownEditor({ file }: MarkdownEditorProps) {
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const [ready, setReady] = useState(false);
   const suppressFileWatch = useRef(false);
+  const [showChat, setShowChat] = useState(false);
 
   const initialHtml = file.content && !isHtml(file.content) ? markdownToHtml(file.content) : (file.content ?? '');
 
@@ -105,10 +108,22 @@ export function MarkdownEditor({ file }: MarkdownEditorProps) {
         <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => editor.chain().focus().undo().run()}><ArrowCounterClockwise size={14} /></Button></TooltipTrigger><TooltipContent side="bottom" className="text-xs">Undo</TooltipContent></Tooltip>
         <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => editor.chain().focus().redo().run()}><ArrowClockwise size={14} /></Button></TooltipTrigger><TooltipContent side="bottom" className="text-xs">Redo</TooltipContent></Tooltip>
         <div className="flex-1" />
+        <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className={cn('h-7 w-7', showChat && 'bg-primary/20 text-primary')} onClick={() => setShowChat(!showChat)}><ChatCircle size={14} /></Button></TooltipTrigger><TooltipContent side="bottom" className="text-xs">AI Chat</TooltipContent></Tooltip>
         <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleManualSave}><FloppyDisk size={14} /></Button></TooltipTrigger><TooltipContent side="bottom" className="text-xs">Save</TooltipContent></Tooltip>
       </div>
-      <div className="flex-1 overflow-y-auto bg-background">
-        <EditorContent editor={editor} className="min-h-full" />
+      <div className="flex-1 overflow-hidden">
+        <Allotment>
+          <Allotment.Pane>
+            <div className="h-full overflow-y-auto bg-background">
+              <EditorContent editor={editor} className="min-h-full" />
+            </div>
+          </Allotment.Pane>
+          {showChat && (
+            <Allotment.Pane preferredSize={340} minSize={240} maxSize={600}>
+              <DocChatPanel filePath={file.path} onClose={() => setShowChat(false)} />
+            </Allotment.Pane>
+          )}
+        </Allotment>
       </div>
     </div>
   );

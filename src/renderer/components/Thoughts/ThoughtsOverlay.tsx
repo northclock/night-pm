@@ -173,7 +173,7 @@ export function ThoughtsOverlay() {
   );
 }
 
-function MessageBlock({ block, isUser, debug }: { block: AIMessage; isUser: boolean; debug: boolean }) {
+export function MessageBlock({ block, isUser, debug }: { block: AIMessage; isUser: boolean; debug: boolean }) {
   const [expanded, setExpanded] = useState(false);
 
   if (block.type === 'text') {

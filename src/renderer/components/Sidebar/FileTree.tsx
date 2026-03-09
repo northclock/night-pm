@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   CaretRight,
   CaretDown,
@@ -11,6 +11,10 @@ import {
   Brain,
   FileText,
   Crosshair,
+  Lightbulb,
+  Lock,
+  Megaphone,
+  ProjectorScreenChart,
 } from '@phosphor-icons/react';
 import {
   DropdownMenu,
@@ -29,6 +33,10 @@ const SPECIAL_ICONS: Record<string, React.ReactNode> = {
   'todos.json': <CheckSquare size={14} className="text-night-green" weight="duotone" />,
   'contacts.json': <Users size={14} className="text-primary" weight="duotone" />,
   'thoughts.json': <Brain size={14} className="text-night-accent2" weight="duotone" />,
+  'ideas.json': <Lightbulb size={14} className="text-night-yellow" weight="duotone" />,
+  'secrets.json': <Lock size={14} className="text-muted-foreground" weight="duotone" />,
+  'standup.json': <Megaphone size={14} className="text-night-accent2" weight="duotone" />,
+  'project.nipm': <ProjectorScreenChart size={14} className="text-primary" weight="duotone" />,
 };
 
 function getFileIcon(name: string) {
@@ -67,6 +75,8 @@ function FileTreeItem({ entry, depth, onRefresh }: FileTreeItemProps) {
   const [renameTo, setRenameTo] = useState(entry.name);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
+  const [creating, setCreating] = useState<'file' | 'doc' | 'folder' | 'project' | null>(null);
+  const [newItemName, setNewItemName] = useState('');
   const openFile = useAppStore((s) => s.openFile);
   const activeFilePath = useAppStore((s) => s.activeFilePath);
   const selectedProjectPath = useAppStore((s) => s.selectedProjectPath);
@@ -131,25 +141,56 @@ function FileTreeItem({ entry, depth, onRefresh }: FileTreeItemProps) {
     } catch (err) { console.error('Failed to rename:', err); }
   }
 
-  async function handleNewFile() {
+  async function startCreating(type: 'file' | 'doc' | 'folder' | 'project') {
     setMenuOpen(false);
     if (!entry.isDirectory) return;
-    const fileName = prompt('File name:');
-    if (!fileName) return;
-    await window.nightAPI.fs.createFile(`${entry.path}/${fileName}`, '');
-    if (!expanded) await toggleExpand();
-    else setChildren(await window.nightAPI.fs.readDir(entry.path));
+    setCreating(type);
+    setNewItemName('');
+    if (!expanded) {
+      try {
+        const entries = await window.nightAPI.fs.readDir(entry.path);
+        setChildren(entries);
+      } catch (err) {
+        console.error('Failed to read dir:', err);
+      }
+      setExpanded(true);
+    }
   }
 
-  async function handleNewFolder() {
-    setMenuOpen(false);
-    if (!entry.isDirectory) return;
-    const folderName = prompt('Folder name:');
-    if (!folderName) return;
-    await window.nightAPI.fs.createDir(`${entry.path}/${folderName}`);
-    if (!expanded) await toggleExpand();
-    else setChildren(await window.nightAPI.fs.readDir(entry.path));
+  async function commitCreate() {
+    if (!newItemName.trim() || !creating) { setCreating(null); return; }
+    try {
+      if (creating === 'file') {
+        await window.nightAPI.fs.createFile(`${entry.path}/${newItemName}`, '');
+      } else if (creating === 'doc') {
+        const docName = newItemName.endsWith('.md') ? newItemName : `${newItemName}.md`;
+        const title = newItemName.replace(/\.md$/, '');
+        await window.nightAPI.fs.createFile(`${entry.path}/${docName}`, `# ${title}\n\n`);
+      } else if (creating === 'folder') {
+        await window.nightAPI.fs.createDir(`${entry.path}/${newItemName}`);
+      } else if (creating === 'project') {
+        const projectPath = await window.nightAPI.project.scaffold(entry.path, newItemName);
+        setSelectedProject(projectPath);
+        await window.nightAPI.app.setActiveProject(projectPath);
+      }
+      setChildren(await window.nightAPI.fs.readDir(entry.path));
+    } catch (err) {
+      console.error(`Failed to create ${creating}:`, err);
+    }
+    setCreating(null);
   }
+
+  const refreshChildren = useCallback(async () => {
+    if (entry.isDirectory && expanded) {
+      try {
+        const entries = await window.nightAPI.fs.readDir(entry.path);
+        setChildren(entries);
+      } catch (err) {
+        console.error('Failed to refresh children:', err);
+      }
+    }
+    onRefresh();
+  }, [entry.isDirectory, entry.path, expanded, onRefresh]);
 
   const isActive = activeFilePath === entry.path;
   const paddingLeft = 12 + depth * 16;
@@ -216,8 +257,10 @@ function FileTreeItem({ entry, depth, onRefresh }: FileTreeItemProps) {
           )}
           {entry.isDirectory && (
             <>
-              <DropdownMenuItem onClick={handleNewFile}>New File</DropdownMenuItem>
-              <DropdownMenuItem onClick={handleNewFolder}>New Folder</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => startCreating('doc')}>New Doc</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => startCreating('file')}>New File</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => startCreating('folder')}>New Folder</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => startCreating('project')}>New Project</DropdownMenuItem>
               <DropdownMenuSeparator />
             </>
           )}
@@ -226,8 +269,37 @@ function FileTreeItem({ entry, depth, onRefresh }: FileTreeItemProps) {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {expanded && children.length > 0 && (
-        <FileTree entries={children} depth={depth + 1} basePath={entry.path} onRefresh={onRefresh} />
+      {expanded && (
+        <>
+          {creating && (
+            <div
+              className="flex items-center gap-1 py-0.5 pr-2"
+              style={{ paddingLeft: 12 + (depth + 1) * 16 }}
+            >
+              <span className="w-[14px] shrink-0" />
+              {creating === 'doc' ? (
+                <FileText size={14} className="text-muted-foreground shrink-0" />
+              ) : creating === 'file' ? (
+                <File size={14} className="text-muted-foreground shrink-0" />
+              ) : (
+                <Folder size={14} className="text-night-yellow shrink-0" weight="duotone" />
+              )}
+              <Input
+                value={newItemName}
+                onChange={(e) => setNewItemName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') commitCreate(); if (e.key === 'Escape') setCreating(null); }}
+                onBlur={commitCreate}
+                className="h-5 text-xs flex-1 px-1"
+                autoFocus
+                placeholder={creating === 'doc' ? 'doc name' : creating === 'file' ? 'filename' : creating === 'folder' ? 'folder name' : 'project name'}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          )}
+          {children.length > 0 && (
+            <FileTree entries={children} depth={depth + 1} basePath={entry.path} onRefresh={refreshChildren} />
+          )}
+        </>
       )}
     </div>
   );

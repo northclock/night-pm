@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { X, Eye, EyeSlash, FloppyDisk, Check, Plus, Trash, CircleNotch } from '@phosphor-icons/react';
+import { useState, useEffect, useCallback } from 'react';
+import { X, Eye, EyeSlash, Plus, Trash, CircleNotch, Check } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -34,12 +34,12 @@ interface SettingsPanelProps { onClose: () => void; }
 export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [showKey, setShowKey] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [agentMd, setAgentMd] = useState('');
   const [providerMd, setProviderMd] = useState('');
   const [skillInput, setSkillInput] = useState('');
   const [providers, setProviders] = useState<ProviderAvailability[]>([]);
+  const [autoSaveFlash, setAutoSaveFlash] = useState(false);
   const selectedProjectPath = useAppStore((s) => s.selectedProjectPath);
 
   useEffect(() => {
@@ -62,26 +62,36 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     return `${PROVIDER_LABELS[id].toUpperCase()}.md`;
   }
 
-  async function handleSave() {
-    await window.nightAPI.settings.set(settings);
-    if (selectedProjectPath) {
-      await window.nightAPI.fs.createDir(`${selectedProjectPath}/.nightpm`);
-      if (agentMd !== undefined) {
-        await window.nightAPI.fs.writeFile(`${selectedProjectPath}/.nightpm/AGENT.md`, agentMd);
-      }
-      if (providerMd !== undefined) {
-        const filename = providerOverrideFilename(settings.provider);
-        await window.nightAPI.fs.writeFile(`${selectedProjectPath}/.nightpm/${filename}`, providerMd);
-      }
-    }
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  }
+  const persistSettings = useCallback((newSettings: AppSettings) => {
+    window.nightAPI.settings.set(newSettings);
+    setAutoSaveFlash(true);
+    setTimeout(() => setAutoSaveFlash(false), 1500);
+  }, []);
 
   function update<K extends keyof AppSettings>(key: K, value: AppSettings[K]) {
-    setSettings((prev) => ({ ...prev, [key]: value }));
-    setSaved(false);
+    setSettings((prev) => {
+      const next = { ...prev, [key]: value };
+      persistSettings(next);
+      return next;
+    });
   }
+
+  const saveAgentMd = useCallback(async () => {
+    if (!selectedProjectPath) return;
+    await window.nightAPI.fs.createDir(`${selectedProjectPath}/.nightpm`);
+    await window.nightAPI.fs.writeFile(`${selectedProjectPath}/.nightpm/AGENT.md`, agentMd);
+    setAutoSaveFlash(true);
+    setTimeout(() => setAutoSaveFlash(false), 1500);
+  }, [selectedProjectPath, agentMd]);
+
+  const saveProviderMd = useCallback(async () => {
+    if (!selectedProjectPath) return;
+    await window.nightAPI.fs.createDir(`${selectedProjectPath}/.nightpm`);
+    const filename = providerOverrideFilename(settings.provider);
+    await window.nightAPI.fs.writeFile(`${selectedProjectPath}/.nightpm/${filename}`, providerMd);
+    setAutoSaveFlash(true);
+    setTimeout(() => setAutoSaveFlash(false), 1500);
+  }, [selectedProjectPath, settings.provider, providerMd]);
 
   function addSkill() {
     if (!skillInput.trim()) return;
@@ -93,21 +103,23 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     update('skills', (settings.skills || []).filter((_, i) => i !== idx));
   }
 
-  function availabilityFor(id: ProviderId) {
-    return providers.find((p) => p.id === id);
-  }
-
   if (loading) return <div className="h-full flex items-center justify-center text-muted-foreground text-sm"><CircleNotch size={16} className="animate-spin mr-2" /> Loading settings...</div>;
 
   return (
     <div className="h-full flex flex-col overflow-auto">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-sidebar">
-        <h2 className="text-sm font-semibold text-foreground">Settings</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-foreground">Settings</h2>
+          {autoSaveFlash && (
+            <span className="text-[10px] text-muted-foreground flex items-center gap-1 animate-in fade-in">
+              <Check size={10} className="text-green-500" /> Auto-saved
+            </span>
+          )}
+        </div>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}><X size={16} /></Button>
       </div>
       <div className="flex-1 overflow-auto p-4 space-y-6">
 
-        {/* ── Provider Selector ── */}
         <section>
           <h3 className="text-xs font-semibold text-primary uppercase tracking-wider mb-3">AI Provider</h3>
           <div className="space-y-3">
@@ -134,7 +146,6 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
         <Separator />
 
-        {/* ── Provider-specific Config ── */}
         {settings.provider === 'claude' && <ClaudeConfig settings={settings} update={update} showKey={showKey} setShowKey={setShowKey} />}
         {settings.provider === 'gemini' && <GeminiConfig settings={settings} update={update} showKey={showKey} setShowKey={setShowKey} />}
         {settings.provider === 'codex' && <CodexConfig settings={settings} update={update} showKey={showKey} setShowKey={setShowKey} />}
@@ -142,7 +153,6 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
         <Separator />
 
-        {/* ── Shared: Max Turns ── */}
         <section>
           <h3 className="text-xs font-semibold text-primary uppercase tracking-wider mb-3">General</h3>
           <div className="space-y-1.5">
@@ -153,7 +163,6 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
         <Separator />
 
-        {/* ── Skills ── */}
         <section>
           <h3 className="text-xs font-semibold text-primary uppercase tracking-wider mb-3">Skills</h3>
           <div className="space-y-2">
@@ -175,7 +184,6 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
         <Separator />
 
-        {/* ── Project Instructions ── */}
         <section>
           <h3 className="text-xs font-semibold text-primary uppercase tracking-wider mb-3">Project Instructions</h3>
           {selectedProjectPath ? (
@@ -183,12 +191,12 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
               <div className="space-y-1.5">
                 <Label>AGENT.md <span className="text-muted-foreground font-normal">(shared across providers)</span></Label>
                 <p className="text-[11px] text-muted-foreground">Stored in <code className="text-primary">.nightpm/AGENT.md</code></p>
-                <Textarea value={agentMd} onChange={(e) => { setAgentMd(e.target.value); setSaved(false); }} rows={6} placeholder="Enter project-specific instructions shared across all providers..." className="text-xs font-mono" />
+                <Textarea value={agentMd} onChange={(e) => setAgentMd(e.target.value)} onBlur={saveAgentMd} rows={6} placeholder="Enter project-specific instructions shared across all providers..." className="text-xs font-mono" />
               </div>
               <div className="space-y-1.5">
                 <Label>{providerOverrideFilename(settings.provider)} <span className="text-muted-foreground font-normal">({PROVIDER_LABELS[settings.provider]} override)</span></Label>
                 <p className="text-[11px] text-muted-foreground">Stored in <code className="text-primary">.nightpm/{providerOverrideFilename(settings.provider)}</code></p>
-                <Textarea value={providerMd} onChange={(e) => { setProviderMd(e.target.value); setSaved(false); }} rows={4} placeholder={`Enter ${PROVIDER_LABELS[settings.provider]}-specific instructions...`} className="text-xs font-mono" />
+                <Textarea value={providerMd} onChange={(e) => setProviderMd(e.target.value)} onBlur={saveProviderMd} rows={4} placeholder={`Enter ${PROVIDER_LABELS[settings.provider]}-specific instructions...`} className="text-xs font-mono" />
               </div>
             </div>
           ) : (
@@ -198,7 +206,6 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
         <Separator />
 
-        {/* ── Project Info (read-only) ── */}
         <section>
           <h3 className="text-xs font-semibold text-primary uppercase tracking-wider mb-3">Project</h3>
           <div className="space-y-4">
@@ -213,17 +220,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           </div>
         </section>
       </div>
-
-      <div className="px-4 py-3 border-t border-border bg-sidebar">
-        <Button className="w-full gap-2" variant={saved ? 'outline' : 'default'} onClick={handleSave}>
-          {saved ? <><Check size={15} /> Saved</> : <><FloppyDisk size={15} /> Save Settings</>}
-        </Button>
-      </div>
     </div>
   );
 }
-
-/* ─── Provider Config Sub-components ─── */
 
 type ConfigProps = {
   settings: AppSettings;

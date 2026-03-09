@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FolderOpen, Plus, ArrowsClockwise, GearSix, Crosshair, Terminal, Sun, Moon } from '@phosphor-icons/react';
+import { FolderOpen, Plus, ArrowsClockwise, GearSix, Crosshair, Terminal, CalendarBlank, Sun, Moon } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -11,9 +11,10 @@ import { cn } from '@/lib/utils';
 interface SidebarProps {
   onOpenSettings: () => void;
   onOpenConsole: () => void;
+  onOpenAllCalendars: () => void;
 }
 
-export function Sidebar({ onOpenSettings, onOpenConsole }: SidebarProps) {
+export function Sidebar({ onOpenSettings, onOpenConsole, onOpenAllCalendars }: SidebarProps) {
   const rootPath = useAppStore((s) => s.rootPath);
   const setRootPath = useAppStore((s) => s.setRootPath);
   const selectedProjectPath = useAppStore((s) => s.selectedProjectPath);
@@ -36,6 +37,18 @@ export function Sidebar({ onOpenSettings, onOpenConsole }: SidebarProps) {
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (!rootPath) return;
+    window.nightAPI.fs.watchDir(rootPath);
+    const cleanup = window.nightAPI.fs.onDirChanged(() => {
+      refreshTree(rootPath);
+    });
+    return () => {
+      window.nightAPI.fs.unwatchDir(rootPath);
+      cleanup();
+    };
+  }, [rootPath]);
 
   async function handleOpenDirectory() {
     const dirPath = await window.nightAPI.dialog.openDirectory();
@@ -94,6 +107,9 @@ export function Sidebar({ onOpenSettings, onOpenConsole }: SidebarProps) {
         )}
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onOpenConsole} title="AI Console">
           <Terminal size={14} />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onOpenAllCalendars} title="All Calendars">
+          <CalendarBlank size={14} />
         </Button>
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onOpenSettings} title="Settings">
           <GearSix size={14} />
