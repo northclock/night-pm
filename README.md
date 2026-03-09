@@ -49,7 +49,7 @@ You need at least one AI CLI installed:
 ### Install and Run
 
 ```bash
-git clone https://github.com/lurose5/night-pm.git
+git clone https://github.com/northclock/night-pm.git
 cd night-pm
 npm install
 npm start
@@ -99,7 +99,7 @@ You type a thought
 
 ### Example: Capturing a new contact
 
-1. Press Shift+Cmd+Y. Type: *"Today I met Luis Romero-Sevilla. He's the VP of AI at Orbis."*
+1. Press Shift+Cmd+Y. Type: *"Today I met Luis. He's a cool engineer from Boston. :)"*
 2. The AI recognizes this is a new contact and calls `contact_add`.
 3. You see Luis in the contacts view.
 4. Later, type: *"Luis is also a music producer."*

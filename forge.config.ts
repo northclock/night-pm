@@ -18,6 +18,21 @@ const config: ForgeConfig = {
     appBundleId: "com.nightpm.app",
     appCategoryType: "public.app-category.productivity",
     darwinDarkModeSupport: true,
+    ...(process.env.APPLE_ID
+      ? {
+          osxSign: {
+            optionsForFile: () => ({
+              entitlements: "./entitlements.plist",
+              entitlementsInherit: "./entitlements.plist",
+            }),
+          },
+          osxNotarize: {
+            appleId: process.env.APPLE_ID!,
+            appleIdPassword: process.env.APPLE_ID_PASSWORD!,
+            teamId: process.env.APPLE_TEAM_ID!,
+          },
+        }
+      : {}),
   },
   rebuildConfig: {},
   makers: [
