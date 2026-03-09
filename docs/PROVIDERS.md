@@ -99,7 +99,7 @@ The key is passed as `GEMINI_API_KEY` environment variable when spawning the CLI
 
 ### MCP Integration
 
-Gemini CLI supports MCP via its config file (`~/.gemini/settings.json`). Night PM does not inject MCP automatically for Gemini -- you need to configure it manually. See [MCP Tools > Gemini CLI](MCP_TOOLS.md#gemini-cli) for setup instructions.
+Gemini CLI supports MCP via SSE. Night PM runs an MCP server on `http://127.0.0.1:7777/sse` automatically. Add it to `~/.gemini/settings.json` — see [MCP Tools > Gemini CLI](MCP_TOOLS.md#gemini-cli) for the config.
 
 ## Codex (OpenAI)
 
@@ -133,7 +133,7 @@ Verify: `codex --version`
 
 ### MCP Integration
 
-Codex supports MCP via its config file. See [MCP Tools > Codex](MCP_TOOLS.md#codex) for manual setup.
+Codex supports MCP via SSE. Night PM runs an MCP server on `http://127.0.0.1:7777/sse` automatically. See [MCP Tools](MCP_TOOLS.md#using-with-external-apps) for config examples.
 
 ## OpenCode
 
@@ -160,7 +160,7 @@ Verify: `opencode --version`
 
 ### MCP Integration
 
-OpenCode supports MCP via its config file (`opencode.json`). See [MCP Tools > OpenCode](MCP_TOOLS.md#opencode) for setup instructions.
+OpenCode supports MCP via SSE. Night PM runs an MCP server on `http://127.0.0.1:7777/sse` automatically. See [MCP Tools](MCP_TOOLS.md#using-with-external-apps) for config examples.
 
 ## Provider Detection
 

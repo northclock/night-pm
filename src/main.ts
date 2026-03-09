@@ -7,6 +7,7 @@ import { startConversation, sendFollowup, stopConversation, listSessions, getAct
 import { loadSettings, saveSettings } from './main/settings';
 import { detectProviders } from './main/detect-providers';
 import { scanProjectTree } from './main/mcp-tools';
+import { startMcpHttpServer, stopMcpHttpServer, getStatus as getMcpStatus } from './main/mcp-http';
 import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 
@@ -63,6 +64,23 @@ app.on('ready', () => {
   // ── Provider detection ──
   ipcMain.handle('ai:detect-providers', () => detectProviders());
   ipcMain.handle('ai:get-active-provider', () => getActiveProviderId());
+
+  // ── MCP HTTP Server ──
+  startMcpHttpServer(
+    () => activeProjectPath,
+    () => rootDirPath,
+    setActiveProject,
+  ).catch((e) => console.error('[MCP HTTP] Failed to start:', e));
+
+  ipcMain.handle('mcp:status', () => getMcpStatus());
+  ipcMain.handle('mcp:restart', async () => {
+    await stopMcpHttpServer();
+    return startMcpHttpServer(
+      () => activeProjectPath,
+      () => rootDirPath,
+      setActiveProject,
+    );
+  });
 
   // ── Project listing ──
   ipcMain.handle('project:list', async () => {
@@ -180,4 +198,5 @@ app.on('will-quit', () => {
   unregisterShortcuts();
   stopConversation('thought');
   stopConversation('console');
+  stopMcpHttpServer().catch(() => {});
 });

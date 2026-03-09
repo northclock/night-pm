@@ -182,6 +182,13 @@ export type SessionInfo = {
   firstPrompt?: string;
 };
 
+export interface McpServerStatus {
+  running: boolean;
+  port: number | null;
+  connections: number;
+  url: string | null;
+}
+
 export interface ProviderAvailability {
   id: ProviderId;
   displayName: string;
@@ -247,6 +254,10 @@ export interface NightAPI {
   project: {
     scaffold: (parentPath: string, name: string) => Promise<string>;
     list: () => Promise<ProjectEntry[]>;
+  };
+  mcp: {
+    status: () => Promise<McpServerStatus>;
+    restart: () => Promise<McpServerStatus>;
   };
 }
 

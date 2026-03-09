@@ -91,4 +91,8 @@ contextBridge.exposeInMainWorld("nightAPI", {
       ipcRenderer.invoke("project:scaffold", p, n),
     list: () => ipcRenderer.invoke("project:list"),
   },
+  mcp: {
+    status: () => ipcRenderer.invoke("mcp:status"),
+    restart: () => ipcRenderer.invoke("mcp:restart"),
+  },
 });

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { X, Eye, EyeSlash, Plus, Trash, CircleNotch, Check } from '@phosphor-icons/react';
+import { X, Eye, EyeSlash, Plus, Trash, CircleNotch, Check, ArrowClockwise, Copy, Circle } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { AppSettings, ProviderId, ProviderAvailability } from '../../types';
+import type { AppSettings, ProviderId, ProviderAvailability, McpServerStatus } from '../../types';
 import { useAppStore } from '../../store';
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -40,12 +40,20 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [skillInput, setSkillInput] = useState('');
   const [providers, setProviders] = useState<ProviderAvailability[]>([]);
   const [autoSaveFlash, setAutoSaveFlash] = useState(false);
+  const [mcpStatus, setMcpStatus] = useState<McpServerStatus | null>(null);
+  const [mcpRestarting, setMcpRestarting] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
   const selectedProjectPath = useAppStore((s) => s.selectedProjectPath);
+
+  const refreshMcpStatus = useCallback(() => {
+    window.nightAPI.mcp.status().then(setMcpStatus).catch(() => {});
+  }, []);
 
   useEffect(() => {
     window.nightAPI.settings.get().then((s) => { setSettings(s); setLoading(false); });
     window.nightAPI.ai.detectProviders().then(setProviders).catch(() => {});
-  }, []);
+    refreshMcpStatus();
+  }, [refreshMcpStatus]);
 
   useEffect(() => {
     if (!selectedProjectPath) return;
@@ -219,6 +227,26 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             </div>
           </div>
         </section>
+
+        <Separator />
+
+        <McpServerSection
+          status={mcpStatus}
+          restarting={mcpRestarting}
+          copied={copied}
+          onRestart={async () => {
+            setMcpRestarting(true);
+            try { const s = await window.nightAPI.mcp.restart(); setMcpStatus(s); }
+            catch { /* ignore */ }
+            finally { setMcpRestarting(false); }
+          }}
+          onRefresh={refreshMcpStatus}
+          onCopy={(key, text) => {
+            navigator.clipboard.writeText(text);
+            setCopied(key);
+            setTimeout(() => setCopied(null), 2000);
+          }}
+        />
       </div>
     </div>
   );
@@ -442,6 +470,145 @@ function OpenCodeConfig({ settings, update, showKey, setShowKey }: ConfigProps) 
           <Label>Model</Label>
           <Input value={oc.model} onChange={(e) => set({ model: e.target.value })} placeholder="e.g. claude-sonnet-4-6, gpt-5.4" />
         </div>
+      </div>
+    </section>
+  );
+}
+
+function CopyBlock({ label, value, copyKey, copied, onCopy }: {
+  label: string; value: string; copyKey: string;
+  copied: string | null; onCopy: (key: string, text: string) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <Label className="text-[11px]">{label}</Label>
+        <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => onCopy(copyKey, value)}>
+          {copied === copyKey ? <Check size={10} className="text-green-500" /> : <Copy size={10} />}
+        </Button>
+      </div>
+      <pre className="text-[10px] bg-background border border-border rounded p-2 overflow-x-auto whitespace-pre font-mono text-muted-foreground select-all leading-relaxed">{value}</pre>
+    </div>
+  );
+}
+
+function McpServerSection({ status, restarting, copied, onRestart, onRefresh, onCopy }: {
+  status: McpServerStatus | null; restarting: boolean;
+  copied: string | null;
+  onRestart: () => void; onRefresh: () => void;
+  onCopy: (key: string, text: string) => void;
+}) {
+  const port = status?.port ?? 7777;
+  const sseUrl = status?.url ?? `http://127.0.0.1:${port}/sse`;
+
+  const claudeConfig = JSON.stringify({
+    mcpServers: {
+      "night-pm": { url: sseUrl },
+    },
+  }, null, 2);
+
+  const cursorConfig = JSON.stringify({
+    mcpServers: {
+      "night-pm": { url: sseUrl },
+    },
+  }, null, 2);
+
+  const windsurf = JSON.stringify({
+    mcpServers: {
+      "night-pm": { serverUrl: sseUrl },
+    },
+  }, null, 2);
+
+  return (
+    <section>
+      <h3 className="text-xs font-semibold text-primary uppercase tracking-wider mb-3">MCP Server</h3>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Circle
+              size={8}
+              weight="fill"
+              className={status?.running ? 'text-green-500' : 'text-red-400'}
+            />
+            <span className="text-xs text-foreground">
+              {status?.running ? `Running on port ${status.port}` : 'Stopped'}
+            </span>
+            {status?.running && status.connections > 0 && (
+              <Badge variant="secondary" className="text-[9px] h-4">
+                {status.connections} client{status.connections !== 1 ? 's' : ''}
+              </Badge>
+            )}
+          </div>
+          <div className="flex gap-1">
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onRefresh} title="Refresh status">
+              <ArrowClockwise size={12} />
+            </Button>
+            <Button variant="outline" size="sm" className="h-6 text-[10px] px-2" onClick={onRestart} disabled={restarting}>
+              {restarting ? <CircleNotch size={10} className="animate-spin mr-1" /> : null}
+              Restart
+            </Button>
+          </div>
+        </div>
+
+        {status?.running && (
+          <>
+            <div className="space-y-1">
+              <Label className="text-[11px]">SSE Endpoint</Label>
+              <div className="flex items-center gap-1">
+                <Input value={sseUrl} readOnly className="text-xs font-mono h-7 text-muted-foreground" />
+                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => onCopy('url', sseUrl)}>
+                  {copied === 'url' ? <Check size={12} className="text-green-500" /> : <Copy size={12} />}
+                </Button>
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <p className="text-[11px] text-muted-foreground">
+                Copy the config below to connect Night PM from other apps.
+              </p>
+
+              <CopyBlock
+                label="Claude Desktop — claude_desktop_config.json"
+                value={claudeConfig}
+                copyKey="claude"
+                copied={copied}
+                onCopy={onCopy}
+              />
+
+              <CopyBlock
+                label="Cursor — .cursor/mcp.json"
+                value={cursorConfig}
+                copyKey="cursor"
+                copied={copied}
+                onCopy={onCopy}
+              />
+
+              <CopyBlock
+                label="Windsurf"
+                value={windsurf}
+                copyKey="windsurf"
+                copied={copied}
+                onCopy={onCopy}
+              />
+
+              <CopyBlock
+                label="Generic SSE URL"
+                value={sseUrl}
+                copyKey="generic"
+                copied={copied}
+                onCopy={onCopy}
+              />
+            </div>
+          </>
+        )}
+
+        {!status?.running && (
+          <p className="text-[11px] text-muted-foreground">
+            The MCP server is not running. Click Restart to start it.
+          </p>
+        )}
       </div>
     </section>
   );

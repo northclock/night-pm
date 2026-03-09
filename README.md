@@ -193,30 +193,25 @@ Night PM exposes 28+ MCP tools for AI engines to manage project data:
 |------|-------------|
 | `standup_generate` | Generate a standup summary from recent tasks and calendar events |
 
-### Standalone MCP Server
+### MCP Server (HTTP/SSE)
 
-Night PM also ships a standalone MCP server for external use with any AI CLI:
+Night PM automatically starts an MCP server on `http://127.0.0.1:7777/sse` when the app launches. Any MCP-compatible app can connect to it over SSE — no separate install or build step.
 
-```bash
-cd mcp-server
-npm install && npm run build
-node dist/index.js --project-path /path/to/your/project
-```
+Go to **Settings > MCP Server** to see the status, port, and copy-pastable configs for Claude Desktop, Cursor, Windsurf, and others.
 
-Add it to your Gemini CLI config (`~/.gemini/settings.json`):
+Example config for Claude Desktop (`claude_desktop_config.json`):
 
 ```json
 {
   "mcpServers": {
     "night-pm": {
-      "command": "node",
-      "args": ["/path/to/night-pm/mcp-server/dist/index.js"]
+      "url": "http://127.0.0.1:7777/sse"
     }
   }
 }
 ```
 
-The server uses `cwd` as the project path by default, or accepts `--project-path` to specify one.
+If port 7777 is in use, the server picks the next available port. Check Settings for the actual URL.
 
 ## Project Identity (`project.nipm`)
 
@@ -286,7 +281,8 @@ night-pm/
       detect-providers.ts             # CLI availability detection
       settings.ts                     # Persistent settings (non-secret)
       keychain.ts                     # OS keychain for API keys
-      mcp-tools.ts                    # In-process MCP tools (28+ tools)
+      mcp-tools.ts                    # In-process MCP tools (28+ tools, Claude SDK)
+      mcp-http.ts                     # HTTP/SSE MCP server (localhost)
       file-io.ts                      # JSON/text file helpers
       providers/
         types.ts                      # AIProvider interface
@@ -330,7 +326,6 @@ night-pm/
       gemini.test.ts                  # Gemini provider tests
       codex.test.ts                   # Codex provider tests
       opencode.test.ts                # OpenCode provider tests
-  mcp-server/                         # Standalone MCP server
 ```
 
 ## Tech Stack
@@ -339,7 +334,7 @@ night-pm/
 - **UI**: React 19, Tailwind CSS 4, shadcn/ui, Allotment (split panes), TipTap (rich text)
 - **State**: Zustand
 - **AI SDKs**: `@anthropic-ai/claude-agent-sdk`, `@openai/codex-sdk`, `@opencode-ai/sdk`
-- **MCP**: `@modelcontextprotocol/sdk` (standalone server), Claude SDK's `createSdkMcpServer` (in-process)
+- **MCP**: `@modelcontextprotocol/sdk` (HTTP/SSE server), Claude SDK's `createSdkMcpServer` (in-process)
 - **Security**: `keytar` (OS keychain for API keys)
 - **Testing**: Vitest (provider integration tests)
 - **Icons**: Phosphor Icons

@@ -154,11 +154,53 @@ Read the project's `info.md` file for context.
 
 **Output**: The contents of `info.md`, or "No project info available." if the file doesn't exist.
 
-## Using with External AI CLIs
+## Using with External Apps
 
-### Claude Code
+Night PM automatically starts an MCP server on `http://127.0.0.1:7777/sse` when the app launches. Any MCP-compatible tool can connect via SSE. Check **Settings > MCP Server** for the actual URL and ready-to-copy configs.
+
+### Claude Code (in-app)
 
 Night PM's MCP tools are automatically available when using Claude as the provider (via in-process SDK server). No configuration needed.
+
+### Claude Desktop
+
+Add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "night-pm": {
+      "url": "http://127.0.0.1:7777/sse"
+    }
+  }
+}
+```
+
+### Cursor
+
+Add to `.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "night-pm": {
+      "url": "http://127.0.0.1:7777/sse"
+    }
+  }
+}
+```
+
+### Windsurf
+
+```json
+{
+  "mcpServers": {
+    "night-pm": {
+      "serverUrl": "http://127.0.0.1:7777/sse"
+    }
+  }
+}
+```
 
 ### Gemini CLI
 
@@ -168,41 +210,18 @@ Add to `~/.gemini/settings.json`:
 {
   "mcpServers": {
     "night-pm": {
-      "command": "node",
-      "args": ["/path/to/night-pm/mcp-server/dist/index.js"]
+      "url": "http://127.0.0.1:7777/sse"
     }
   }
 }
 ```
 
-Run the CLI from your project directory, or pass `--project-path`:
+### Generic SSE
 
-```bash
-cd /path/to/your/project
-gemini
+Any MCP client that supports SSE can connect to:
+
+```
+http://127.0.0.1:7777/sse
 ```
 
-### Codex
-
-Add to your Codex config (`~/.codex/config.toml` or via the SDK):
-
-```toml
-[mcp_servers.night-pm]
-command = "node"
-args = ["/path/to/night-pm/mcp-server/dist/index.js"]
-```
-
-### OpenCode
-
-Add to your `opencode.json`:
-
-```json
-{
-  "mcp": {
-    "night-pm": {
-      "command": "node",
-      "args": ["/path/to/night-pm/mcp-server/dist/index.js"]
-    }
-  }
-}
-```
+If port 7777 is in use, Night PM picks the next available port. Check **Settings > MCP Server** for the actual URL.

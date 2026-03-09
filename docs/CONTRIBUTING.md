@@ -60,14 +60,6 @@ npm start
 
 The app starts with hot reload via Electron Forge + Vite. Changes to renderer code update instantly. Changes to main process code require typing `rs` in the terminal or restarting.
 
-### Building the MCP Server
-
-```bash
-cd mcp-server
-npm install
-npm run build
-```
-
 ### Running Tests
 
 ```bash
@@ -137,7 +129,7 @@ Renderer (React)  <-->  Main Process (Node.js)  <-->  AI Engine (external CLI)
 
 - **Provider**: An AI engine adapter (Claude, Gemini, Codex, OpenCode). Each implements the `AIProvider` interface in `src/main/providers/`.
 - **Engine**: The orchestrator (`src/main/engine.ts`) that delegates to the active provider based on settings. Loads project context from `project.nipm` and injects it into every conversation.
-- **MCP Tools**: The 28+ tools exposed via `src/main/mcp-tools.ts` (in-process for Claude) and `mcp-server/` (standalone for external CLIs).
+- **MCP Tools**: The 28+ tools exposed via `src/main/mcp-tools.ts` (in-process for Claude) and `src/main/mcp-http.ts` (HTTP/SSE for external apps).
 - **Project**: A filesystem folder identified by a `project.nipm` file. Projects can be nested.
 - **Thought**: A user input that gets sent to the AI engine with the Night PM system prompt. The AI decides what to do with it.
 - **Doc Chat**: An AI chat panel within the markdown editor that provides the current document as context.
@@ -152,9 +144,9 @@ Renderer (React)  <-->  Main Process (Node.js)  <-->  AI Engine (external CLI)
 
 ### Adding a New MCP Tool
 
-1. Add the tool in `src/main/mcp-tools.ts` using the `tool()` helper from the Claude Agent SDK.
-2. Mirror it in `mcp-server/src/tools/` for the standalone server.
-3. Both implementations should read/write the same JSON file format.
+1. Add the tool in `src/main/mcp-tools.ts` using the `tool()` helper from the Claude Agent SDK (for in-process use by Claude).
+2. Add the same tool in `src/main/mcp-http.ts` using `server.tool()` from `@modelcontextprotocol/sdk` (for the HTTP/SSE server).
+3. Both implementations should read/write the same JSON file format using the helpers in `src/main/file-io.ts`.
 
 ### Adding a New Project File Type
 

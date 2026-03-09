@@ -60,6 +60,7 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.71",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "@openai/codex-sdk": "^0.111.0",
     "@opencode-ai/sdk": "^1.2.21",
     "@phosphor-icons/react": "^2.1.10",

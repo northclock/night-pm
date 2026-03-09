@@ -251,7 +251,7 @@ Night PM exposes its features as MCP tools in two ways:
 
 1. **In-process** (Claude only): `src/main/mcp-tools.ts` uses `createSdkMcpServer()` from the Claude Agent SDK to create an in-process MCP server that gets passed directly to `query()`. The server accepts `projectPath`, optional `rootPath` (for project scanning), and optional `setActiveProject` callback.
 
-2. **Standalone server**: `mcp-server/` is a separate Node.js package that runs as a stdio MCP server. Any AI CLI can connect to it via config.
+2. **HTTP/SSE server**: `src/main/mcp-http.ts` starts an HTTP server on localhost (default port 7777) when the app launches. It uses the standard `@modelcontextprotocol/sdk` SSE transport, so any MCP-compatible app (Claude Desktop, Cursor, Windsurf, Gemini CLI, etc.) can connect via the SSE endpoint. The server dynamically resolves the current active project path, so tool calls always operate on the project selected in Night PM. Connection configs are available in **Settings > MCP Server**.
 
 ## Settings and Autosave
 
