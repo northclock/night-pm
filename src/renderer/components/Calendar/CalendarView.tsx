@@ -4,7 +4,7 @@ import {
   format, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   addDays, addMonths, subMonths, addWeeks, subWeeks,
   isSameMonth, isSameDay, parseISO, isToday,
-  eachHourOfInterval, startOfDay, endOfDay,
+  startOfDay, endOfDay,
   addYears,
 } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
@@ -212,6 +212,128 @@ function MonthGrid({ currentDate, events, selectedDate, onSelectDate, onEditEven
   );
 }
 
+const HOUR_HEIGHT = 60;
+const MIN_EVENT_HEIGHT = 18;
+const HOUR_LABELS = Array.from({ length: 24 }, (_, i) => {
+  const period = i < 12 ? 'AM' : 'PM';
+  const h = i === 0 ? 12 : i > 12 ? i - 12 : i;
+  return `${h} ${period}`;
+});
+
+interface PositionedEvent {
+  event: CalendarEvent;
+  top: number;
+  height: number;
+  col: number;
+  totalCols: number;
+}
+
+function layoutDayEvents(dayEvents: CalendarEvent[], day: Date): PositionedEvent[] {
+  const dayMs = startOfDay(day).getTime();
+  const items = dayEvents
+    .filter((e) => isSameDay(parseISO(e.start), day))
+    .map((e) => {
+      const s = parseISO(e.start);
+      const end = parseISO(e.end);
+      const startMin = (s.getTime() - dayMs) / 60000;
+      const endMin = Math.max((end.getTime() - dayMs) / 60000, startMin + 15);
+      return { event: e, startMin, endMin };
+    })
+    .sort((a, b) => a.startMin - b.startMin || b.endMin - a.endMin);
+
+  const columns: number[] = [];
+  const placed: { col: number; endMin: number; startMin: number; event: CalendarEvent }[] = [];
+
+  for (const item of items) {
+    let col = 0;
+    while (col < columns.length && columns[col] > item.startMin) col++;
+    if (col === columns.length) columns.push(0);
+    columns[col] = item.endMin;
+    placed.push({ col, endMin: item.endMin, startMin: item.startMin, event: item.event });
+  }
+
+  const groups: typeof placed[] = [];
+  for (const p of placed) {
+    let added = false;
+    for (const g of groups) {
+      if (g.some((m) => m.startMin < p.endMin && p.startMin < m.endMin)) {
+        g.push(p);
+        added = true;
+        break;
+      }
+    }
+    if (!added) groups.push([p]);
+  }
+
+  const colCounts = new Map<typeof placed[number], number>();
+  for (const g of groups) {
+    const maxCol = Math.max(...g.map((m) => m.col)) + 1;
+    for (const m of g) colCounts.set(m, maxCol);
+  }
+
+  return placed.map((p) => ({
+    event: p.event,
+    top: (p.startMin / 60) * HOUR_HEIGHT,
+    height: Math.max(((p.endMin - p.startMin) / 60) * HOUR_HEIGHT, MIN_EVENT_HEIGHT),
+    col: p.col,
+    totalCols: colCounts.get(p) || 1,
+  }));
+}
+
+function EventBlocks({ positioned, onEditEvent }: { positioned: PositionedEvent[]; onEditEvent: (e: CalendarEvent) => void }) {
+  return (
+    <>
+      {positioned.map((p) => {
+        const left = `${(p.col / p.totalCols) * 100}%`;
+        const width = `${(1 / p.totalCols) * 100}%`;
+        return (
+          <div
+            key={p.event.id}
+            className="absolute rounded bg-primary/20 text-primary border-l-2 border-primary px-1.5 py-0.5 overflow-hidden cursor-pointer hover:bg-primary/30 transition-colors"
+            style={{ top: p.top, height: p.height, left, width }}
+            onClick={(e) => { e.stopPropagation(); onEditEvent(p.event); }}
+          >
+            <div className="text-[10px] font-medium truncate leading-tight">{p.event.title}</div>
+            {p.height > 30 && (
+              <div className="text-[9px] text-primary/70 truncate">
+                {format(parseISO(p.event.start), 'h:mm a')} – {format(parseISO(p.event.end), 'h:mm a')}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+function HourLines({ count }: { count: number }) {
+  return (
+    <>
+      {Array.from({ length: count }, (_, i) => (
+        <div key={i} className="absolute left-0 right-0 border-t border-border" style={{ top: i * HOUR_HEIGHT }} />
+      ))}
+    </>
+  );
+}
+
+function TimeLabels() {
+  return (
+    <div className="w-14 shrink-0 relative bg-sidebar" style={{ height: 24 * HOUR_HEIGHT }}>
+      {HOUR_LABELS.map((label, i) => (
+        i > 0 && (
+          <div
+            key={i}
+            className="absolute right-2 text-[10px] text-muted-foreground leading-none"
+            style={{ top: i * HOUR_HEIGHT, transform: 'translateY(-50%)' }}
+          >
+            {label}
+          </div>
+        )
+      ))}
+    </div>
+  );
+}
+
 function WeekGrid({ currentDate, events, onSelectDate, onEditEvent }: {
   currentDate: Date; events: CalendarEvent[];
   onSelectDate: (d: Date) => void; onEditEvent: (e: CalendarEvent) => void;
@@ -222,40 +344,37 @@ function WeekGrid({ currentDate, events, onSelectDate, onEditEvent }: {
   let d = ws;
   while (d <= we) { weekDays.push(d); d = addDays(d, 1); }
 
-  const hours = eachHourOfInterval({ start: startOfDay(ws), end: endOfDay(ws) }).slice(0, 24);
   const expanded = useMemo(() => expandRecurring(events, ws, we), [events, ws, we]);
 
-  function eventsAtHour(day: Date, hour: number) {
-    return expanded.filter((e) => {
-      const s = parseISO(e.start);
-      return isSameDay(s, day) && s.getHours() === hour;
-    });
-  }
+  const dayLayouts = useMemo(
+    () => weekDays.map((day) => layoutDayEvents(expanded, day)),
+    [expanded, weekDays],
+  );
+
+  const gridHeight = 24 * HOUR_HEIGHT;
 
   return (
-    <div className="flex-1 overflow-auto">
-      <div className="grid grid-cols-[60px_repeat(7,1fr)] border border-border rounded-lg overflow-hidden">
-        <div className="bg-sidebar" />
+    <div className="flex-1 overflow-auto border border-border rounded-lg">
+      <div className="flex">
+        <div className="w-14 shrink-0 bg-sidebar" />
         {weekDays.map((day) => (
-          <div key={day.toISOString()} className={cn('bg-sidebar p-2 text-center border-l border-border', isToday(day) && 'bg-primary/10')}>
+          <div key={day.toISOString()} className={cn('flex-1 p-2 text-center border-l border-border bg-sidebar', isToday(day) && 'bg-primary/10')}>
             <div className="text-[10px] text-muted-foreground">{format(day, 'EEE')}</div>
             <div className={cn('text-sm', isToday(day) ? 'font-bold text-primary' : 'text-foreground')}>{format(day, 'd')}</div>
           </div>
         ))}
-        {hours.map((hour) => (
-          <div key={hour.toISOString()} className="contents">
-            <div className="bg-sidebar p-1 text-[10px] text-muted-foreground text-right pr-2 border-t border-border">{format(hour, 'h a')}</div>
-            {weekDays.map((day) => {
-              const hourEvents = eventsAtHour(day, hour.getHours());
-              return (
-                <div key={`${day.toISOString()}-${hour.getHours()}`} className="border-l border-t border-border min-h-[40px] p-0.5 cursor-pointer hover:bg-accent/20" onClick={() => onSelectDate(day)}>
-                  {hourEvents.map((evt) => (
-                    <div key={evt.id} className="text-[10px] px-1 py-0.5 rounded bg-primary/20 text-primary truncate cursor-pointer hover:bg-primary/30 mb-0.5"
-                      onClick={(e) => { e.stopPropagation(); onEditEvent(evt); }}>{evt.title}</div>
-                  ))}
-                </div>
-              );
-            })}
+      </div>
+      <div className="flex">
+        <TimeLabels />
+        {weekDays.map((day, di) => (
+          <div
+            key={day.toISOString()}
+            className="flex-1 relative border-l border-border"
+            style={{ height: gridHeight }}
+            onClick={() => onSelectDate(day)}
+          >
+            <HourLines count={24} />
+            <EventBlocks positioned={dayLayouts[di]} onEditEvent={onEditEvent} />
           </div>
         ))}
       </div>
@@ -269,36 +388,23 @@ function DayGrid({ currentDate, events, onEditEvent }: {
 }) {
   const dayStart = startOfDay(currentDate);
   const dayEnd = endOfDay(currentDate);
-  const hours = eachHourOfInterval({ start: dayStart, end: dayEnd }).slice(0, 24);
   const expanded = useMemo(() => expandRecurring(events, dayStart, dayEnd), [events, dayStart, dayEnd]);
 
-  function eventsAtHour(hour: number) {
-    return expanded.filter((e) => {
-      const s = parseISO(e.start);
-      return isSameDay(s, currentDate) && s.getHours() === hour;
-    });
-  }
+  const positioned = useMemo(
+    () => layoutDayEvents(expanded, currentDate),
+    [expanded, currentDate],
+  );
+
+  const gridHeight = 24 * HOUR_HEIGHT;
 
   return (
-    <div className="flex-1 overflow-auto">
-      <div className="border border-border rounded-lg overflow-hidden">
-        {hours.map((hour) => {
-          const hourEvents = eventsAtHour(hour.getHours());
-          return (
-            <div key={hour.toISOString()} className="flex border-t border-border first:border-t-0">
-              <div className="w-16 shrink-0 bg-sidebar p-2 text-[10px] text-muted-foreground text-right pr-3">{format(hour, 'h a')}</div>
-              <div className="flex-1 min-h-[48px] p-1">
-                {hourEvents.map((evt) => (
-                  <div key={evt.id} className="text-xs px-2 py-1 rounded bg-primary/20 text-primary cursor-pointer hover:bg-primary/30 mb-1"
-                    onClick={() => onEditEvent(evt)}>
-                    <span className="font-medium">{evt.title}</span>
-                    {evt.description && <span className="text-[10px] text-muted-foreground ml-2">{evt.description}</span>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
+    <div className="flex-1 overflow-auto border border-border rounded-lg">
+      <div className="flex">
+        <TimeLabels />
+        <div className="flex-1 relative" style={{ height: gridHeight }}>
+          <HourLines count={24} />
+          <EventBlocks positioned={positioned} onEditEvent={onEditEvent} />
+        </div>
       </div>
     </div>
   );
