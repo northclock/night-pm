@@ -12,7 +12,7 @@ const config: ForgeConfig = {
     asar: {
       unpack: "**/{keytar.node,*.node}",
     },
-    icon: "./images/icon",
+    icon: "./public/images/icon",
     name: "Night PM",
     executableName: "night-pm",
     appBundleId: "com.nightpm.app",

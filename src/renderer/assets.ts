@@ -1,5 +1,2 @@
-import logo from '../../images/logo.svg';
-import icon from '../../images/icon.svg';
-
-export const logoUrl: string = logo;
-export const iconUrl: string = icon;
+export const logoUrl = '/images/logo.svg';
+export const iconUrl = '/images/icon.svg';
