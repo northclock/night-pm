@@ -8,6 +8,8 @@ import { cn } from '@/lib/utils';
 import type { OpenFile, Todo } from '../../types';
 import { TodoItem } from './TodoItem';
 import { TodoForm } from './TodoForm';
+import { useChildProjectData } from '../../hooks/useChildProjectData';
+import { ChildrenToggleButton, ChildrenLegend } from '../ui/ChildrenToggleBar';
 
 interface TodosViewProps { file: OpenFile; }
 type StatusFilter = 'all' | 'created' | 'blocked' | 'done';
@@ -17,6 +19,11 @@ export function TodosView({ file }: TodosViewProps) {
   const [filter, setFilter] = useState<StatusFilter>('all');
   const [showForm, setShowForm] = useState(false);
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
+
+  const {
+    showChildren, toggleChildren, children: childProjects,
+    loaded: childrenLoaded, childDisplayItems, toggleChildVisibility, hasProject,
+  } = useChildProjectData<Todo>(file.path, 'todos.json');
 
   useEffect(() => {
     try { setTodos(JSON.parse(file.content || '[]')); } catch { setTodos([]); }
@@ -43,17 +50,25 @@ export function TodosView({ file }: TodosViewProps) {
     saveTodos(todos.map((t) => t.id !== id ? t : { ...t, status: next[t.status] || 'created', updatedOn: new Date().toISOString() }));
   }
 
-  const filtered = filter === 'all' ? todos : todos.filter((t) => t.status === filter);
-  const counts = { all: todos.length, created: todos.filter((t) => t.status === 'created').length, blocked: todos.filter((t) => t.status === 'blocked').length, done: todos.filter((t) => t.status === 'done').length };
+  const allTodos = [...todos, ...childDisplayItems.map((d) => d.item)];
+  const filtered = filter === 'all' ? allTodos : allTodos.filter((t) => t.status === filter);
+  const counts = { all: allTodos.length, created: allTodos.filter((t) => t.status === 'created').length, blocked: allTodos.filter((t) => t.status === 'blocked').length, done: allTodos.filter((t) => t.status === 'done').length };
+
+  const childItemIds = new Set(childDisplayItems.map((d) => d.item.id));
+  const childColorMap = new Map(childDisplayItems.map((d) => [d.item.id, { color: d._color, name: d._projectName }]));
 
   return (
     <div className="h-full flex flex-col p-4 overflow-auto">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-foreground">To-Dos</h2>
-        <Button variant="outline" size="sm" className="gap-1.5 text-primary border-primary/30" onClick={() => { setEditingTodo(null); setShowForm(true); }}>
-          <Plus size={14} /> Add Task
-        </Button>
+        <div className="flex items-center gap-2">
+          <ChildrenToggleButton showChildren={showChildren} onToggle={toggleChildren} hasProject={hasProject} />
+          <Button variant="outline" size="sm" className="gap-1.5 text-primary border-primary/30" onClick={() => { setEditingTodo(null); setShowForm(true); }}>
+            <Plus size={14} /> Add Task
+          </Button>
+        </div>
       </div>
+      <ChildrenLegend showChildren={showChildren} children={childProjects} loaded={childrenLoaded} onToggleChild={toggleChildVisibility} />
       <div className="flex gap-1 mb-4">
         {(['all', 'created', 'blocked', 'done'] as const).map((s) => (
           <Badge key={s} variant={filter === s ? 'default' : 'secondary'} className={cn('cursor-pointer gap-1.5', filter === s && 'bg-primary')} onClick={() => setFilter(s)}>
@@ -65,9 +80,21 @@ export function TodosView({ file }: TodosViewProps) {
       <div className="space-y-1">
         {filtered.length === 0 ? (
           <div className="text-sm text-muted-foreground text-center py-8">{filter === 'all' ? 'No tasks yet' : `No ${filter} tasks`}</div>
-        ) : filtered.map((todo) => (
-          <TodoItem key={todo.id} todo={todo} onToggle={() => handleToggleStatus(todo.id)} onEdit={() => { setEditingTodo(todo); setShowForm(true); }} onDelete={() => handleDelete(todo.id)} />
-        ))}
+        ) : filtered.map((todo) => {
+          const isChild = childItemIds.has(todo.id);
+          const childInfo = childColorMap.get(todo.id);
+          return (
+            <TodoItem
+              key={`${childInfo?.name ?? 'own'}-${todo.id}`}
+              todo={todo}
+              onToggle={isChild ? undefined : () => handleToggleStatus(todo.id)}
+              onEdit={isChild ? undefined : () => { setEditingTodo(todo); setShowForm(true); }}
+              onDelete={isChild ? undefined : () => handleDelete(todo.id)}
+              accentColor={childInfo?.color}
+              projectName={childInfo?.name}
+            />
+          );
+        })}
       </div>
       <Dialog open={showForm} onOpenChange={(open) => { if (!open) { setShowForm(false); setEditingTodo(null); } }}>
         <DialogContent className="sm:max-w-[420px] p-0">

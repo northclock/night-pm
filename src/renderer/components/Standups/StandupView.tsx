@@ -1,15 +1,27 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Megaphone, Trash, CheckCircle, Circle, Warning, CalendarBlank, CaretDown, CaretRight } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { OpenFile, Standup } from '../../types';
+import { useChildProjectData } from '../../hooks/useChildProjectData';
+import { ChildrenToggleButton, ChildrenLegend } from '../ui/ChildrenToggleBar';
 
 interface Props { file: OpenFile; }
+
+interface DisplayStandup extends Standup {
+  _color?: string;
+  _projectName?: string;
+}
 
 export function StandupView({ file }: Props) {
   const [standups, setStandups] = useState<Standup[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const {
+    showChildren, toggleChildren, children: childProjects,
+    loaded: childrenLoaded, childDisplayItems, toggleChildVisibility, hasProject,
+  } = useChildProjectData<Standup>(file.path, 'standup.json');
 
   useEffect(() => {
     try { setStandups(JSON.parse(file.content || '[]')); } catch { setStandups([]); }
@@ -19,6 +31,13 @@ export function StandupView({ file }: Props) {
     setStandups(updated);
     await window.nightAPI.fs.writeFile(file.path, JSON.stringify(updated, null, 2));
   }, [file.path]);
+
+  const allStandups: DisplayStandup[] = useMemo(() => [
+    ...standups,
+    ...childDisplayItems.map((d) => ({ ...d.item, _color: d._color, _projectName: d._projectName })),
+  ], [standups, childDisplayItems]);
+
+  const childItemIds = new Set(childDisplayItems.map((d) => d.item.id));
 
   function handleDelete(id: string, e: React.MouseEvent) {
     e.stopPropagation();
@@ -35,7 +54,7 @@ export function StandupView({ file }: Props) {
     return parts.length ? parts.join(' · ') : 'Empty standup';
   }
 
-  const sorted = [...standups].sort((a, b) => b.date.localeCompare(a.date));
+  const sorted = [...allStandups].sort((a, b) => b.date.localeCompare(a.date));
 
   return (
     <div className="h-full flex flex-col p-4 overflow-auto">
@@ -44,10 +63,14 @@ export function StandupView({ file }: Props) {
           <Megaphone size={20} className="text-night-accent2" weight="duotone" />
           <h2 className="text-lg font-semibold text-foreground">Standups</h2>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Ask the AI for a standup to generate one
-        </p>
+        <div className="flex items-center gap-3">
+          <ChildrenToggleButton showChildren={showChildren} onToggle={toggleChildren} hasProject={hasProject} />
+          <p className="text-xs text-muted-foreground">
+            Ask the AI for a standup to generate one
+          </p>
+        </div>
       </div>
+      <ChildrenLegend showChildren={showChildren} children={childProjects} loaded={childrenLoaded} onToggleChild={toggleChildVisibility} />
 
       {sorted.length === 0 ? (
         <div className="text-sm text-muted-foreground text-center py-8">
@@ -57,14 +80,16 @@ export function StandupView({ file }: Props) {
         <div className="space-y-2">
           {sorted.map((standup) => {
             const isExpanded = expandedId === standup.id;
+            const isChild = childItemIds.has(standup.id);
             const dateLabel = standup.startDate && standup.startDate !== standup.endDate
               ? `${standup.startDate} → ${standup.endDate ?? standup.date}`
               : standup.date;
 
             return (
               <Card
-                key={standup.id}
+                key={`${standup._projectName ?? 'own'}-${standup.id}`}
                 className={`cursor-pointer transition-colors ${isExpanded ? 'border-primary/40' : 'hover:border-primary/20'}`}
+                style={standup._color ? { borderLeftWidth: 3, borderLeftColor: standup._color } : undefined}
                 onClick={() => setExpandedId(isExpanded ? null : standup.id)}
               >
                 <CardHeader className="py-3 px-4">
@@ -72,22 +97,27 @@ export function StandupView({ file }: Props) {
                     {isExpanded
                       ? <CaretDown size={12} className="text-muted-foreground shrink-0" />
                       : <CaretRight size={12} className="text-muted-foreground shrink-0" />}
+                    {standup._projectName && (
+                      <span className="text-[11px] font-semibold shrink-0" style={{ color: standup._color }}>{standup._projectName}</span>
+                    )}
                     <Badge variant="outline" className="font-mono text-xs shrink-0">
                       {dateLabel}
                     </Badge>
                     <span className="text-xs text-muted-foreground truncate">
                       {buildQuickSummary(standup)}
                     </span>
-                    <div className="ml-auto shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                        onClick={(e) => handleDelete(standup.id, e)}
-                      >
-                        <Trash size={12} />
-                      </Button>
-                    </div>
+                    {!isChild && (
+                      <div className="ml-auto shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                          onClick={(e) => handleDelete(standup.id, e)}
+                        >
+                          <Trash size={12} />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </CardHeader>
 

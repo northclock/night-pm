@@ -13,8 +13,15 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import type { OpenFile, CalendarEvent } from '../../types';
 import { EventForm } from './EventForm';
+import { useChildProjectData } from '../../hooks/useChildProjectData';
+import { ChildrenToggleButton, ChildrenLegend } from '../ui/ChildrenToggleBar';
 
 type ViewMode = 'month' | 'week' | 'day';
+
+export interface DisplayCalendarEvent extends CalendarEvent {
+  _color?: string;
+  _projectName?: string;
+}
 
 interface CalendarViewProps {
   file: OpenFile;
@@ -66,12 +73,24 @@ export function CalendarView({ file, extraEvents, projectLabel }: CalendarViewPr
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const {
+    showChildren, toggleChildren, children: childCalendars,
+    loaded: childrenLoaded, childDisplayItems, toggleChildVisibility, hasProject,
+  } = useChildProjectData<CalendarEvent>(file.path, 'calendar.json');
 
   useEffect(() => {
     try { setEvents(JSON.parse(file.content || '[]')); } catch { setEvents([]); }
   }, [file.content]);
 
-  const allRawEvents = useMemo(() => [...events, ...(extraEvents || [])], [events, extraEvents]);
+  const childDisplayEvents: DisplayCalendarEvent[] = useMemo(
+    () => childDisplayItems.map((d) => ({ ...d.item, _color: d._color, _projectName: d._projectName })),
+    [childDisplayItems],
+  );
+
+  const allRawEvents: DisplayCalendarEvent[] = useMemo(
+    () => [...events, ...(extraEvents || []), ...childDisplayEvents],
+    [events, extraEvents, childDisplayEvents],
+  );
 
   const saveEvents = useCallback(async (newEvents: CalendarEvent[]) => {
     setEvents(newEvents);
@@ -134,6 +153,9 @@ export function CalendarView({ file, extraEvents, projectLabel }: CalendarViewPr
           </div>
           <Button variant="ghost" size="sm" className="text-xs" onClick={() => setCurrentDate(new Date())}>Today</Button>
           {!readOnly && (
+            <ChildrenToggleButton showChildren={showChildren} onToggle={toggleChildren} hasProject={hasProject} />
+          )}
+          {!readOnly && (
             <Button variant="outline" size="sm" className="gap-1.5 text-primary border-primary/30" onClick={() => { setEditingEvent(null); setShowForm(true); }}>
               <Plus size={14} /> Add Event
             </Button>
@@ -141,10 +163,11 @@ export function CalendarView({ file, extraEvents, projectLabel }: CalendarViewPr
         </div>
       </div>
       {projectLabel && <p className="text-xs text-muted-foreground mb-2">{projectLabel}</p>}
+      <ChildrenLegend showChildren={showChildren} children={childCalendars} loaded={childrenLoaded} onToggleChild={toggleChildVisibility} />
 
-      {viewMode === 'month' && <MonthGrid currentDate={currentDate} events={allRawEvents} selectedDate={selectedDate} onSelectDate={(d) => { setSelectedDate(d); if (!readOnly) { setEditingEvent(null); setShowForm(true); } }} onEditEvent={(e) => { if (!readOnly) { setEditingEvent(e); setShowForm(true); } }} />}
-      {viewMode === 'week' && <WeekGrid currentDate={currentDate} events={allRawEvents} onSelectDate={(d) => { setSelectedDate(d); if (!readOnly) { setEditingEvent(null); setShowForm(true); } }} onEditEvent={(e) => { if (!readOnly) { setEditingEvent(e); setShowForm(true); } }} />}
-      {viewMode === 'day' && <DayGrid currentDate={currentDate} events={allRawEvents} onEditEvent={(e) => { if (!readOnly) { setEditingEvent(e); setShowForm(true); } }} />}
+      {viewMode === 'month' && <MonthGrid currentDate={currentDate} events={allRawEvents} selectedDate={selectedDate} onSelectDate={(d) => { setSelectedDate(d); if (!readOnly) { setEditingEvent(null); setShowForm(true); } }} onEditEvent={(e) => { if (!readOnly && !(e as DisplayCalendarEvent)._projectName) { setEditingEvent(e); setShowForm(true); } }} />}
+      {viewMode === 'week' && <WeekGrid currentDate={currentDate} events={allRawEvents} onSelectDate={(d) => { setSelectedDate(d); if (!readOnly) { setEditingEvent(null); setShowForm(true); } }} onEditEvent={(e) => { if (!readOnly && !(e as DisplayCalendarEvent)._projectName) { setEditingEvent(e); setShowForm(true); } }} />}
+      {viewMode === 'day' && <DayGrid currentDate={currentDate} events={allRawEvents} onEditEvent={(e) => { if (!readOnly && !(e as DisplayCalendarEvent)._projectName) { setEditingEvent(e); setShowForm(true); } }} />}
 
       {!readOnly && (
         <Dialog open={showForm} onOpenChange={(open) => { if (!open) { setShowForm(false); setEditingEvent(null); } }}>
@@ -164,8 +187,8 @@ export function CalendarView({ file, extraEvents, projectLabel }: CalendarViewPr
 }
 
 function MonthGrid({ currentDate, events, selectedDate, onSelectDate, onEditEvent }: {
-  currentDate: Date; events: CalendarEvent[]; selectedDate: Date | null;
-  onSelectDate: (d: Date) => void; onEditEvent: (e: CalendarEvent) => void;
+  currentDate: Date; events: DisplayCalendarEvent[]; selectedDate: Date | null;
+  onSelectDate: (d: Date) => void; onEditEvent: (e: DisplayCalendarEvent) => void;
 }) {
   const monthStart = startOfMonth(currentDate);
   const calStart = startOfWeek(monthStart);
@@ -200,10 +223,21 @@ function MonthGrid({ currentDate, events, selectedDate, onSelectDate, onEditEven
               'text-xs mb-1 w-6 h-6 flex items-center justify-center rounded-full',
               isToday(day) ? 'bg-primary text-primary-foreground font-bold' : 'text-muted-foreground',
             )}>{format(day, 'd')}</div>
-            {dayEvents.slice(0, 3).map((evt) => (
-              <div key={evt.id} className="text-[10px] px-1 py-0.5 mb-0.5 rounded bg-primary/20 text-primary truncate cursor-pointer hover:bg-primary/30"
-                onClick={(e) => { e.stopPropagation(); onEditEvent(evt); }}>{evt.title}</div>
-            ))}
+            {dayEvents.slice(0, 3).map((evt) => {
+              const de = evt as DisplayCalendarEvent;
+              return (
+                <div
+                  key={evt.id}
+                  className={cn('text-[10px] px-1 py-0.5 mb-0.5 rounded truncate cursor-pointer transition-colors', !de._color && 'bg-primary/20 text-primary hover:bg-primary/30')}
+                  style={de._color ? { backgroundColor: `${de._color}20`, color: de._color } : undefined}
+                  onClick={(e) => { e.stopPropagation(); onEditEvent(evt); }}
+                  title={de._projectName ? `[${de._projectName}] ${evt.title}` : evt.title}
+                >
+                  {de._projectName && <span className="font-semibold">{de._projectName}: </span>}
+                  {evt.title}
+                </div>
+              );
+            })}
             {dayEvents.length > 3 && <div className="text-[10px] text-muted-foreground px-1">+{dayEvents.length - 3} more</div>}
           </div>
         );
@@ -221,14 +255,14 @@ const HOUR_LABELS = Array.from({ length: 24 }, (_, i) => {
 });
 
 interface PositionedEvent {
-  event: CalendarEvent;
+  event: DisplayCalendarEvent;
   top: number;
   height: number;
   col: number;
   totalCols: number;
 }
 
-function layoutDayEvents(dayEvents: CalendarEvent[], day: Date): PositionedEvent[] {
+function layoutDayEvents(dayEvents: DisplayCalendarEvent[], day: Date): PositionedEvent[] {
   const dayMs = startOfDay(day).getTime();
   const items = dayEvents
     .filter((e) => isSameDay(parseISO(e.start), day))
@@ -242,7 +276,7 @@ function layoutDayEvents(dayEvents: CalendarEvent[], day: Date): PositionedEvent
     .sort((a, b) => a.startMin - b.startMin || b.endMin - a.endMin);
 
   const columns: number[] = [];
-  const placed: { col: number; endMin: number; startMin: number; event: CalendarEvent }[] = [];
+  const placed: { col: number; endMin: number; startMin: number; event: DisplayCalendarEvent }[] = [];
 
   for (const item of items) {
     let col = 0;
@@ -280,22 +314,33 @@ function layoutDayEvents(dayEvents: CalendarEvent[], day: Date): PositionedEvent
   }));
 }
 
-function EventBlocks({ positioned, onEditEvent }: { positioned: PositionedEvent[]; onEditEvent: (e: CalendarEvent) => void }) {
+function EventBlocks({ positioned, onEditEvent }: { positioned: PositionedEvent[]; onEditEvent: (e: DisplayCalendarEvent) => void }) {
   return (
     <>
       {positioned.map((p) => {
         const left = `${(p.col / p.totalCols) * 100}%`;
         const width = `${(1 / p.totalCols) * 100}%`;
+        const color = p.event._color;
         return (
           <div
             key={p.event.id}
-            className="absolute rounded bg-primary/20 text-primary border-l-2 border-primary px-1.5 py-0.5 overflow-hidden cursor-pointer hover:bg-primary/30 transition-colors"
-            style={{ top: p.top, height: p.height, left, width }}
+            className={cn(
+              'absolute rounded px-1.5 py-0.5 overflow-hidden cursor-pointer transition-colors border-l-2',
+              !color && 'bg-primary/20 text-primary border-primary hover:bg-primary/30',
+            )}
+            style={{
+              top: p.top, height: p.height, left, width,
+              ...(color ? { backgroundColor: `${color}20`, color, borderLeftColor: color } : {}),
+            }}
             onClick={(e) => { e.stopPropagation(); onEditEvent(p.event); }}
+            title={p.event._projectName ? `[${p.event._projectName}] ${p.event.title}` : p.event.title}
           >
-            <div className="text-[10px] font-medium truncate leading-tight">{p.event.title}</div>
+            <div className="text-[10px] font-medium truncate leading-tight">
+              {p.event._projectName && <span className="opacity-70">{p.event._projectName}: </span>}
+              {p.event.title}
+            </div>
             {p.height > 30 && (
-              <div className="text-[9px] text-primary/70 truncate">
+              <div className="text-[9px] truncate" style={color ? { color, opacity: 0.7 } : undefined}>
                 {format(parseISO(p.event.start), 'h:mm a')} – {format(parseISO(p.event.end), 'h:mm a')}
               </div>
             )}
@@ -335,8 +380,8 @@ function TimeLabels() {
 }
 
 function WeekGrid({ currentDate, events, onSelectDate, onEditEvent }: {
-  currentDate: Date; events: CalendarEvent[];
-  onSelectDate: (d: Date) => void; onEditEvent: (e: CalendarEvent) => void;
+  currentDate: Date; events: DisplayCalendarEvent[];
+  onSelectDate: (d: Date) => void; onEditEvent: (e: DisplayCalendarEvent) => void;
 }) {
   const ws = startOfWeek(currentDate);
   const we = endOfWeek(currentDate);
@@ -383,8 +428,8 @@ function WeekGrid({ currentDate, events, onSelectDate, onEditEvent }: {
 }
 
 function DayGrid({ currentDate, events, onEditEvent }: {
-  currentDate: Date; events: CalendarEvent[];
-  onEditEvent: (e: CalendarEvent) => void;
+  currentDate: Date; events: DisplayCalendarEvent[];
+  onEditEvent: (e: DisplayCalendarEvent) => void;
 }) {
   const dayStart = startOfDay(currentDate);
   const dayEnd = endOfDay(currentDate);
