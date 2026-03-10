@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FolderOpen, Plus, ArrowsClockwise, GearSix, Crosshair, Terminal, CalendarBlank, Sun, Moon } from '@phosphor-icons/react';
+import { FolderOpen, Plus, ArrowsClockwise, GearSix, Crosshair, Terminal, CalendarBlank, CheckSquare, Sun, Moon } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -12,9 +12,10 @@ interface SidebarProps {
   onOpenSettings: () => void;
   onOpenConsole: () => void;
   onOpenAllCalendars: () => void;
+  onOpenAllTodos: () => void;
 }
 
-export function Sidebar({ onOpenSettings, onOpenConsole, onOpenAllCalendars }: SidebarProps) {
+export function Sidebar({ onOpenSettings, onOpenConsole, onOpenAllCalendars, onOpenAllTodos }: SidebarProps) {
   const rootPath = useAppStore((s) => s.rootPath);
   const setRootPath = useAppStore((s) => s.setRootPath);
   const selectedProjectPath = useAppStore((s) => s.selectedProjectPath);
@@ -110,6 +111,9 @@ export function Sidebar({ onOpenSettings, onOpenConsole, onOpenAllCalendars }: S
         </Button>
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onOpenAllCalendars} title="All Calendars">
           <CalendarBlank size={14} />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onOpenAllTodos} title="All To-Dos">
+          <CheckSquare size={14} />
         </Button>
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onOpenSettings} title="Settings">
           <GearSix size={14} />

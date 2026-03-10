@@ -21,32 +21,59 @@ export interface DisplayItem<T> {
 
 async function scanChildProjectFile<T>(projectDir: string, filename: string): Promise<ChildProject<T>[]> {
   const results: ChildProject<T>[] = [];
-  try {
-    const entries = await window.nightAPI.fs.readDir(projectDir);
-    let colorIdx = 0;
+  let colorIdx = 0;
+
+  async function recurse(dir: string): Promise<void> {
+    let entries: Awaited<ReturnType<typeof window.nightAPI.fs.readDir>>;
+    try {
+      entries = await window.nightAPI.fs.readDir(dir);
+    } catch { return; }
+
     for (const entry of entries) {
-      if (!entry.isDirectory || entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'docs') continue;
+      if (!entry.isDirectory || entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+
       const nipmPath = `${entry.path}/project.nipm`;
-      const filePath = `${entry.path}/${filename}`;
+      let isProject = false;
+      let projectName = entry.name;
+
       try {
         const nipmExists = await window.nightAPI.fs.exists(nipmPath);
-        if (!nipmExists) continue;
-        const fileExists = await window.nightAPI.fs.exists(filePath);
-        if (!fileExists) continue;
-        const raw = await window.nightAPI.fs.readFile(filePath);
-        const items: T[] = JSON.parse(raw);
-        if (items.length === 0) continue;
-        results.push({
-          name: entry.name,
-          path: entry.path,
-          color: CHILD_COLORS[colorIdx % CHILD_COLORS.length],
-          items,
-          visible: true,
-        });
-        colorIdx++;
-      } catch { /* skip malformed */ }
+        if (nipmExists) {
+          isProject = true;
+          try {
+            const nipmRaw = await window.nightAPI.fs.readFile(nipmPath);
+            const nipmData = JSON.parse(nipmRaw);
+            if (nipmData.name) projectName = nipmData.name;
+          } catch { /* use folder name */ }
+        }
+      } catch { /* not a project */ }
+
+      if (isProject) {
+        const filePath = `${entry.path}/${filename}`;
+        try {
+          const fileExists = await window.nightAPI.fs.exists(filePath);
+          if (fileExists) {
+            const raw = await window.nightAPI.fs.readFile(filePath);
+            const items: T[] = JSON.parse(raw);
+            if (items.length > 0) {
+              results.push({
+                name: projectName,
+                path: entry.path,
+                color: CHILD_COLORS[colorIdx % CHILD_COLORS.length],
+                items,
+                visible: true,
+              });
+              colorIdx++;
+            }
+          }
+        } catch { /* skip malformed */ }
+      } else {
+        await recurse(entry.path);
+      }
     }
-  } catch { /* skip unreadable */ }
+  }
+
+  await recurse(projectDir);
   return results;
 }
 

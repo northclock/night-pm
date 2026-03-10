@@ -8,12 +8,13 @@ import { ContentArea } from '../ContentArea/ContentArea';
 import { SettingsPanel } from '../Settings/SettingsPanel';
 import { AIConsole } from '../AIConsole/AIConsole';
 import { AllCalendarsView } from '../Calendar/AllCalendarsView';
+import { AllTodosView } from '../Todos/AllTodosView';
 import { ProviderSetupDialog } from '../ProviderSetup/ProviderSetupDialog';
 import { useAppStore } from '../../store';
 import type { ProviderAvailability, ProviderId } from '../../types';
 import { logoUrl } from '../../assets';
 
-type OverlayPanel = 'settings' | 'console' | 'all-calendars' | null;
+type OverlayPanel = 'settings' | 'console' | 'all-calendars' | 'all-todos' | null;
 
 export function AppLayout() {
   const activeFilePath = useAppStore((s) => s.activeFilePath);
@@ -63,6 +64,7 @@ export function AppLayout() {
               onOpenSettings={() => openPanel('settings')}
               onOpenConsole={() => openPanel('console')}
               onOpenAllCalendars={() => openPanel('all-calendars')}
+              onOpenAllTodos={() => openPanel('all-todos')}
             />
           </Allotment.Pane>
           <Allotment.Pane>
@@ -75,6 +77,8 @@ export function AppLayout() {
                   <AIConsole onClose={() => setOverlayPanel(null)} />
                 ) : overlayPanel === 'all-calendars' ? (
                   <AllCalendarsView onClose={() => setOverlayPanel(null)} />
+                ) : overlayPanel === 'all-todos' ? (
+                  <AllTodosView onClose={() => setOverlayPanel(null)} />
                 ) : activeFilePath ? (
                   <ContentArea />
                 ) : (
