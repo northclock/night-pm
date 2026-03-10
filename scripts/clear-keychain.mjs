@@ -1,42 +1,22 @@
 #!/usr/bin/env node
-// Removes Night PM keychain entries created by keytar.
+// Removes Night PM encrypted secrets file.
 // Run via: npm run reset
 
-const SERVICE = 'Night PM';
-const KEYS = [
-  'claude.anthropicApiKey',
-  'gemini.apiKey',
-  'codex.apiKey',
-  'opencode.apiKey',
-];
+import { existsSync, unlinkSync } from 'node:fs';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
 
-async function main() {
-  let keytar;
-  try {
-    keytar = (await import('keytar')).default;
-  } catch {
-    console.log('keytar not available — no keychain entries to clear.');
-    return;
-  }
+const appData = process.platform === 'darwin'
+  ? join(homedir(), 'Library', 'Application Support', 'Night PM')
+  : process.platform === 'win32'
+    ? join(process.env.APPDATA || join(homedir(), 'AppData', 'Roaming'), 'Night PM')
+    : join(homedir(), '.config', 'Night PM');
 
-  let cleared = 0;
-  for (const key of KEYS) {
-    try {
-      const deleted = await keytar.deletePassword(SERVICE, key);
-      if (deleted) {
-        console.log(`  Removed keychain entry: ${key}`);
-        cleared++;
-      }
-    } catch {
-      // Entry didn't exist — fine
-    }
-  }
+const secretsFile = join(appData, 'night-pm-secrets.enc');
 
-  if (cleared === 0) {
-    console.log('  No keychain entries found.');
-  } else {
-    console.log(`  ${cleared} keychain ${cleared === 1 ? 'entry' : 'entries'} cleared.`);
-  }
+if (existsSync(secretsFile)) {
+  unlinkSync(secretsFile);
+  console.log('  Removed encrypted secrets file.');
+} else {
+  console.log('  No secrets file found.');
 }
-
-main().catch(console.error);

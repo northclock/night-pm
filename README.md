@@ -335,7 +335,7 @@ night-pm/
 - **State**: Zustand
 - **AI SDKs**: `@anthropic-ai/claude-agent-sdk`, `@openai/codex-sdk`, `@opencode-ai/sdk`
 - **MCP**: `@modelcontextprotocol/sdk` (HTTP/SSE server), Claude SDK's `createSdkMcpServer` (in-process)
-- **Security**: `keytar` (OS keychain for API keys)
+- **Security**: Electron `safeStorage` (OS-level encryption for API keys)
 - **Testing**: Vitest (provider integration tests)
 - **Icons**: Phosphor Icons
 

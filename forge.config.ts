@@ -9,9 +9,7 @@ import { FuseV1Options, FuseVersion } from "@electron/fuses";
 
 const config: ForgeConfig = {
   packagerConfig: {
-    asar: {
-      unpack: "**/{keytar.node,*.node}",
-    },
+    asar: true,
     icon: "./public/images/icon",
     name: "Night PM",
     executableName: "night-pm",

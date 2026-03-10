@@ -255,7 +255,7 @@ Night PM exposes its features as MCP tools in two ways:
 
 ## Settings and Autosave
 
-Settings are stored in `<userData>/night-pm-settings.json`. API keys are stored in the OS keychain via `keytar`.
+Settings are stored in `<userData>/night-pm-settings.json`. API keys are encrypted on disk via Electron's `safeStorage` API (uses macOS Keychain, Windows DPAPI, or libsecret on Linux under the hood).
 
 The SettingsPanel uses immediate autosave: every change to a setting immediately calls `window.nightAPI.settings.set()`. For AGENT.md and provider override `.md` files, writes happen on `onBlur` (when the textarea loses focus) since these are larger payloads hitting the filesystem.
 
