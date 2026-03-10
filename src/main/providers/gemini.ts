@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
+import { getShellPath } from '../detect-providers';
 import type { AIProvider, AIMessage, AIResult, StartSessionOpts, MessageCallback, SessionInfo } from './types';
 
 export interface GeminiConfig {
@@ -183,7 +184,7 @@ function spawnGemini(
   config: GeminiConfig,
   projectPath: string,
 ): ChildProcess {
-  const env: Record<string, string | undefined> = { ...process.env };
+  const env: Record<string, string | undefined> = { ...process.env, PATH: getShellPath() };
   if (config.apiKey) {
     env.GEMINI_API_KEY = config.apiKey;
   }

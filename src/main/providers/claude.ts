@@ -7,6 +7,7 @@ import { app } from "electron";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { createProjectMcpServer } from "../mcp-tools";
+import { getShellPath } from "../detect-providers";
 import type {
   AIProvider,
   StartSessionOpts,
@@ -256,7 +257,7 @@ export interface ClaudeConfig {
 const sessions = new Map<string, ClaudeSession>();
 
 function buildEnv(cfg: ClaudeConfig): Record<string, string | undefined> {
-  const env: Record<string, string | undefined> = { ...process.env };
+  const env: Record<string, string | undefined> = { ...process.env, PATH: getShellPath() };
   if (cfg.authMode === "vertex") {
     env.CLAUDE_CODE_USE_VERTEX = "1";
     env.ANTHROPIC_VERTEX_PROJECT_ID = cfg.vertexProjectId;

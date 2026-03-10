@@ -1,13 +1,30 @@
-import { execFile } from 'node:child_process';
+import { execFile, execSync } from 'node:child_process';
 import { app } from 'electron';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { ProviderAvailability } from './providers/types';
 
+// Packaged macOS apps inherit a minimal PATH. Resolve the full shell PATH once.
+let resolvedPath: string | undefined;
+export function getShellPath(): string {
+  if (resolvedPath !== undefined) return resolvedPath;
+  if (process.platform !== 'darwin' && process.platform !== 'linux') {
+    resolvedPath = process.env.PATH ?? '';
+    return resolvedPath;
+  }
+  try {
+    const shell = process.env.SHELL || '/bin/zsh';
+    resolvedPath = execSync(`${shell} -ilc 'echo $PATH'`, { encoding: 'utf-8', timeout: 5000 }).trim();
+  } catch {
+    resolvedPath = process.env.PATH ?? '';
+  }
+  return resolvedPath;
+}
+
 function commandExists(cmd: string): Promise<boolean> {
   return new Promise((resolve) => {
     const shell = process.platform === 'win32' ? 'where' : 'which';
-    execFile(shell, [cmd], (err) => resolve(!err));
+    execFile(shell, [cmd], { env: { ...process.env, PATH: getShellPath() } }, (err) => resolve(!err));
   });
 }
 
@@ -16,7 +33,14 @@ function claudeCliExists(): boolean {
     path.join(app.getAppPath(), 'node_modules', '@anthropic-ai', 'claude-agent-sdk', 'cli.js'),
     path.join(process.cwd(), 'node_modules', '@anthropic-ai', 'claude-agent-sdk', 'cli.js'),
   ];
-  return candidates.some((p) => fs.existsSync(p));
+  // Also check common global install locations
+  const globalPaths = getShellPath().split(':');
+  for (const dir of globalPaths) {
+    candidates.push(path.join(dir, 'claude'));
+  }
+  return candidates.some((p) => {
+    try { return fs.existsSync(p); } catch { return false; }
+  });
 }
 
 export async function detectProviders(): Promise<ProviderAvailability[]> {

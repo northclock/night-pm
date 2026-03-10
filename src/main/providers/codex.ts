@@ -1,4 +1,5 @@
 import { Codex } from '@openai/codex-sdk';
+import { getShellPath } from '../detect-providers';
 import type {
   AIProvider,
   StartSessionOpts,
@@ -27,11 +28,12 @@ const sessions = new Map<string, CodexSession>();
 let turnCounter = 0;
 
 function buildCodexInstance(cfg: CodexConfig): Codex {
-  const env: Record<string, string | undefined> = { ...process.env };
+  const raw: Record<string, string | undefined> = { ...process.env, PATH: getShellPath() };
   if (cfg.apiKey) {
-    env.OPENAI_API_KEY = cfg.apiKey;
-    env.CODEX_API_KEY = cfg.apiKey;
+    raw.OPENAI_API_KEY = cfg.apiKey;
+    raw.CODEX_API_KEY = cfg.apiKey;
   }
+  const env = Object.fromEntries(Object.entries(raw).filter((e): e is [string, string] => e[1] !== undefined));
   return new Codex({ env });
 }
 
