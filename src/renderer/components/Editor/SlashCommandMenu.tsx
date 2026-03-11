@@ -4,9 +4,11 @@ import {
   TextHOne, TextHTwo, TextHThree,
   ListBullets, ListNumbers, ListChecks,
   Code, Quotes, Minus, Table, Image, YoutubeLogo,
-  MathOperations, CaretRight, Paragraph,
+  MathOperations, CaretRight, Paragraph, Browser,
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
+
+type MediaType = 'image' | 'youtube' | 'embed';
 
 interface CommandItem {
   title: string;
@@ -14,88 +16,95 @@ interface CommandItem {
   icon: React.ElementType;
   category: string;
   action: (editor: Editor) => void;
+  mediaType?: MediaType;
 }
 
-const COMMANDS: CommandItem[] = [
-  {
-    title: 'Text', description: 'Plain paragraph text', icon: Paragraph, category: 'Basic',
-    action: (e) => e.chain().focus().setParagraph().run(),
-  },
-  {
-    title: 'Heading 1', description: 'Large section heading', icon: TextHOne, category: 'Basic',
-    action: (e) => e.chain().focus().toggleHeading({ level: 1 }).run(),
-  },
-  {
-    title: 'Heading 2', description: 'Medium section heading', icon: TextHTwo, category: 'Basic',
-    action: (e) => e.chain().focus().toggleHeading({ level: 2 }).run(),
-  },
-  {
-    title: 'Heading 3', description: 'Small section heading', icon: TextHThree, category: 'Basic',
-    action: (e) => e.chain().focus().toggleHeading({ level: 3 }).run(),
-  },
-  {
-    title: 'Bullet List', description: 'Unordered list of items', icon: ListBullets, category: 'Lists',
-    action: (e) => e.chain().focus().toggleBulletList().run(),
-  },
-  {
-    title: 'Numbered List', description: 'Ordered list of items', icon: ListNumbers, category: 'Lists',
-    action: (e) => e.chain().focus().toggleOrderedList().run(),
-  },
-  {
-    title: 'Task List', description: 'List with checkboxes', icon: ListChecks, category: 'Lists',
-    action: (e) => e.chain().focus().toggleTaskList().run(),
-  },
-  {
-    title: 'Code Block', description: 'Syntax-highlighted code', icon: Code, category: 'Advanced',
-    action: (e) => e.chain().focus().toggleCodeBlock().run(),
-  },
-  {
-    title: 'Blockquote', description: 'Quoted text block', icon: Quotes, category: 'Advanced',
-    action: (e) => e.chain().focus().toggleBlockquote().run(),
-  },
-  {
-    title: 'Divider', description: 'Horizontal separator', icon: Minus, category: 'Advanced',
-    action: (e) => e.chain().focus().setHorizontalRule().run(),
-  },
-  {
-    title: 'Table', description: '3x3 table with header', icon: Table, category: 'Advanced',
-    action: (e) => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
-  },
-  {
-    title: 'Image', description: 'Embed an image from URL', icon: Image, category: 'Media',
-    action: (e) => {
-      const url = window.prompt('Image URL');
-      if (url) e.chain().focus().setImage({ src: url }).run();
+function buildCommands(onMediaInsert?: (type: MediaType) => void): CommandItem[] {
+  return [
+    {
+      title: 'Text', description: 'Plain paragraph text', icon: Paragraph, category: 'Basic',
+      action: (e) => e.chain().focus().setParagraph().run(),
     },
-  },
-  {
-    title: 'YouTube', description: 'Embed a YouTube video', icon: YoutubeLogo, category: 'Media',
-    action: (e) => {
-      const url = window.prompt('YouTube URL');
-      if (url) e.chain().focus().setYoutubeVideo({ src: url }).run();
+    {
+      title: 'Heading 1', description: 'Large section heading', icon: TextHOne, category: 'Basic',
+      action: (e) => e.chain().focus().toggleHeading({ level: 1 }).run(),
     },
-  },
-  {
-    title: 'Math', description: 'LaTeX math formula', icon: MathOperations, category: 'Advanced',
-    action: (e) => e.chain().focus().insertContent({ type: 'mathematics', attrs: { latex: 'E = mc^2' } }).run(),
-  },
-  {
-    title: 'Toggle', description: 'Collapsible section', icon: CaretRight, category: 'Advanced',
-    action: (e) => e.chain().focus().setDetails().run(),
-  },
-];
+    {
+      title: 'Heading 2', description: 'Medium section heading', icon: TextHTwo, category: 'Basic',
+      action: (e) => e.chain().focus().toggleHeading({ level: 2 }).run(),
+    },
+    {
+      title: 'Heading 3', description: 'Small section heading', icon: TextHThree, category: 'Basic',
+      action: (e) => e.chain().focus().toggleHeading({ level: 3 }).run(),
+    },
+    {
+      title: 'Bullet List', description: 'Unordered list of items', icon: ListBullets, category: 'Lists',
+      action: (e) => e.chain().focus().toggleBulletList().run(),
+    },
+    {
+      title: 'Numbered List', description: 'Ordered list of items', icon: ListNumbers, category: 'Lists',
+      action: (e) => e.chain().focus().toggleOrderedList().run(),
+    },
+    {
+      title: 'Task List', description: 'List with checkboxes', icon: ListChecks, category: 'Lists',
+      action: (e) => e.chain().focus().toggleTaskList().run(),
+    },
+    {
+      title: 'Code Block', description: 'Syntax-highlighted code', icon: Code, category: 'Advanced',
+      action: (e) => e.chain().focus().toggleCodeBlock().run(),
+    },
+    {
+      title: 'Blockquote', description: 'Quoted text block', icon: Quotes, category: 'Advanced',
+      action: (e) => e.chain().focus().toggleBlockquote().run(),
+    },
+    {
+      title: 'Divider', description: 'Horizontal separator', icon: Minus, category: 'Advanced',
+      action: (e) => e.chain().focus().setHorizontalRule().run(),
+    },
+    {
+      title: 'Table', description: '3x3 table with header', icon: Table, category: 'Advanced',
+      action: (e) => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+    },
+    {
+      title: 'Image', description: 'Embed image from URL or file', icon: Image, category: 'Media',
+      mediaType: 'image',
+      action: () => onMediaInsert?.('image'),
+    },
+    {
+      title: 'YouTube', description: 'Embed a YouTube video', icon: YoutubeLogo, category: 'Media',
+      mediaType: 'youtube',
+      action: () => onMediaInsert?.('youtube'),
+    },
+    {
+      title: 'Embed', description: 'Embed any URL as iframe', icon: Browser, category: 'Media',
+      mediaType: 'embed',
+      action: () => onMediaInsert?.('embed'),
+    },
+    {
+      title: 'Math', description: 'LaTeX math formula', icon: MathOperations, category: 'Advanced',
+      action: (e) => e.chain().focus().insertContent({ type: 'mathematics', attrs: { latex: 'E = mc^2' } }).run(),
+    },
+    {
+      title: 'Toggle', description: 'Collapsible section', icon: CaretRight, category: 'Advanced',
+      action: (e) => e.chain().focus().setDetails().run(),
+    },
+  ];
+}
 
 interface SlashCommandMenuProps {
   editor: Editor;
+  onMediaInsert?: (type: MediaType) => void;
 }
 
-export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
+export function SlashCommandMenu({ editor, onMediaInsert }: SlashCommandMenuProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const filtered = COMMANDS.filter(
+  const commands = buildCommands(onMediaInsert);
+
+  const filtered = commands.filter(
     (cmd) =>
       cmd.title.toLowerCase().includes(query.toLowerCase()) ||
       cmd.description.toLowerCase().includes(query.toLowerCase()) ||

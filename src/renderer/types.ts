@@ -250,6 +250,13 @@ export interface NightAPI {
   };
   dialog: {
     openDirectory: () => Promise<string | null>;
+    openFile: (filters?: { name: string; extensions: string[] }[]) => Promise<string | null>;
+    saveFile: (defaultName: string, filters?: { name: string; extensions: string[] }[]) => Promise<string | null>;
+  };
+  export: {
+    html: (filePath: string, html: string) => Promise<void>;
+    pdf: (filePath: string, html: string) => Promise<void>;
+    captureUrl: (url: string, width: number, height: number) => Promise<string | null>;
   };
   project: {
     scaffold: (parentPath: string, name: string) => Promise<string>;

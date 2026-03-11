@@ -9,18 +9,24 @@ import {
   ArrowCounterClockwise, ArrowClockwise, FloppyDisk, ChatCircle,
   Table as TableIcon, Image as ImageIcon, TextAlignLeft, TextAlignCenter,
   TextAlignRight, Highlighter, YoutubeLogo,
-  MathOperations, CaretRight,
+  MathOperations, CaretRight, Browser, Export, FileHtml, FilePdf,
 } from '@phosphor-icons/react';
 import { Allotment } from 'allotment';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import type { OpenFile } from '../../types';
+import { buildExportHtml, replaceIframesWithScreenshots } from './export-html';
 import { useAppStore } from '../../store';
 import { DocChatPanel } from './DocChatPanel';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { EditorBubbleMenu } from './EditorBubbleMenu';
+import { MediaInsertDialog, type MediaType } from './MediaInsertDialog';
+import { IframeEmbed } from './extensions/IframeEmbed';
 
 import { TableKit } from '@tiptap/extension-table';
 import TaskList from '@tiptap/extension-task-list';
@@ -53,6 +59,7 @@ export function MarkdownEditor({ file }: MarkdownEditorProps) {
   const [ready, setReady] = useState(false);
   const suppressFileWatch = useRef(false);
   const [showChat, setShowChat] = useState(false);
+  const [mediaDialog, setMediaDialog] = useState<{ open: boolean; type: MediaType }>({ open: false, type: 'image' });
 
   const editor = useEditor({
     extensions: [
@@ -85,6 +92,7 @@ export function MarkdownEditor({ file }: MarkdownEditorProps) {
       Typography,
       Focus.configure({ className: 'has-focus', mode: 'deepest' }),
       Mathematics,
+      IframeEmbed,
     ],
     content: file.content ?? '',
     contentType: 'markdown',
@@ -131,19 +139,51 @@ export function MarkdownEditor({ file }: MarkdownEditorProps) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [handleManualSave]);
 
+  const baseName = file.name.replace(/\.[^.]+$/, '');
+
+  const exportAsHtml = useCallback(async () => {
+    if (!editor) return;
+    const savePath = await window.nightAPI.dialog.saveFile(
+      `${baseName}.html`,
+      [{ name: 'HTML', extensions: ['html', 'htm'] }],
+    );
+    if (!savePath) return;
+    const html = buildExportHtml(file.name, editor.getHTML());
+    await window.nightAPI.export.html(savePath, html);
+  }, [editor, baseName, file.name]);
+
+  const exportAsPdf = useCallback(async () => {
+    if (!editor) return;
+    const savePath = await window.nightAPI.dialog.saveFile(
+      `${baseName}.pdf`,
+      [{ name: 'PDF', extensions: ['pdf'] }],
+    );
+    if (!savePath) return;
+    const bodyHtml = await replaceIframesWithScreenshots(editor.getHTML());
+    const html = buildExportHtml(file.name, bodyHtml);
+    await window.nightAPI.export.pdf(savePath, html);
+  }, [editor, baseName, file.name]);
+
   const insertTable = useCallback(() => {
     editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
   }, [editor]);
 
-  const insertImage = useCallback(() => {
-    const url = window.prompt('Image URL');
-    if (url) editor?.chain().focus().setImage({ src: url }).run();
-  }, [editor]);
+  const openMediaDialog = useCallback((type: MediaType) => {
+    setMediaDialog({ open: true, type });
+  }, []);
 
-  const insertYoutube = useCallback(() => {
-    const url = window.prompt('YouTube URL');
-    if (url) editor?.chain().focus().setYoutubeVideo({ src: url }).run();
-  }, [editor]);
+  const handleMediaInsert = useCallback((url: string) => {
+    if (!editor) return;
+    const { type } = mediaDialog;
+    if (type === 'image') {
+      const src = url.startsWith('/') ? `file://${url}` : url;
+      editor.chain().focus().setImage({ src }).run();
+    } else if (type === 'youtube') {
+      editor.chain().focus().setYoutubeVideo({ src: url }).run();
+    } else if (type === 'embed') {
+      editor.chain().focus().setIframeEmbed({ src: url }).run();
+    }
+  }, [editor, mediaDialog]);
 
   const insertMath = useCallback(() => {
     editor?.chain().focus().insertContent({ type: 'mathematics', attrs: { latex: 'E = mc^2' } }).run();
@@ -178,8 +218,9 @@ export function MarkdownEditor({ file }: MarkdownEditorProps) {
     { icon: Quotes, action: () => editor.chain().focus().toggleBlockquote().run(), active: editor.isActive('blockquote'), label: 'Blockquote' },
     { icon: Minus, action: () => editor.chain().focus().setHorizontalRule().run(), label: 'Horizontal Rule' },
     { icon: TableIcon, action: insertTable, label: 'Insert Table' },
-    { icon: ImageIcon, action: insertImage, label: 'Insert Image' },
-    { icon: YoutubeLogo, action: insertYoutube, label: 'YouTube Video' },
+    { icon: ImageIcon, action: () => openMediaDialog('image'), label: 'Insert Image' },
+    { icon: YoutubeLogo, action: () => openMediaDialog('youtube'), label: 'YouTube Video' },
+    { icon: Browser, action: () => openMediaDialog('embed'), label: 'Embed URL' },
     { icon: MathOperations, action: insertMath, label: 'Math Formula' },
     { icon: CaretRight, action: () => editor.chain().focus().setDetails().run(), label: 'Collapsible Section' },
   ];
@@ -224,13 +265,33 @@ export function MarkdownEditor({ file }: MarkdownEditorProps) {
         </span>
         <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className={cn('h-7 w-7', showChat && 'bg-primary/20 text-primary')} onClick={() => setShowChat(!showChat)}><ChatCircle size={14} /></Button></TooltipTrigger><TooltipContent side="bottom" className="text-xs">AI Chat</TooltipContent></Tooltip>
         <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleManualSave}><FloppyDisk size={14} /></Button></TooltipTrigger><TooltipContent side="bottom" className="text-xs">Save</TooltipContent></Tooltip>
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7"><Export size={14} /></Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Export</TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="end" className="min-w-[160px]">
+            <DropdownMenuItem onClick={exportAsHtml}>
+              <FileHtml size={16} />
+              Export as HTML
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={exportAsPdf}>
+              <FilePdf size={16} />
+              Export as PDF
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <div className="flex-1 overflow-hidden">
         <Allotment>
           <Allotment.Pane>
             <div className="h-full overflow-y-auto bg-background">
               <EditorBubbleMenu editor={editor} />
-              <SlashCommandMenu editor={editor} />
+              <SlashCommandMenu editor={editor} onMediaInsert={openMediaDialog} />
               <EditorContent editor={editor} className="min-h-full" />
             </div>
           </Allotment.Pane>
@@ -241,6 +302,12 @@ export function MarkdownEditor({ file }: MarkdownEditorProps) {
           )}
         </Allotment>
       </div>
+      <MediaInsertDialog
+        open={mediaDialog.open}
+        type={mediaDialog.type}
+        onClose={() => setMediaDialog((d) => ({ ...d, open: false }))}
+        onInsert={handleMediaInsert}
+      />
     </div>
   );
 }

@@ -85,6 +85,18 @@ contextBridge.exposeInMainWorld("nightAPI", {
   },
   dialog: {
     openDirectory: () => ipcRenderer.invoke("dialog:openDirectory"),
+    openFile: (filters?: { name: string; extensions: string[] }[]) =>
+      ipcRenderer.invoke("dialog:openFile", filters),
+    saveFile: (defaultName: string, filters?: { name: string; extensions: string[] }[]) =>
+      ipcRenderer.invoke("dialog:saveFile", defaultName, filters),
+  },
+  export: {
+    html: (filePath: string, html: string) =>
+      ipcRenderer.invoke("export:html", filePath, html),
+    pdf: (filePath: string, html: string) =>
+      ipcRenderer.invoke("export:pdf", filePath, html),
+    captureUrl: (url: string, width: number, height: number) =>
+      ipcRenderer.invoke("export:captureUrl", url, width, height) as Promise<string | null>,
   },
   project: {
     scaffold: (p: string, n: string) =>

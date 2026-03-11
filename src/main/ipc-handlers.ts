@@ -160,6 +160,61 @@ export function registerIpcHandlers() {
     return result.filePaths[0];
   });
 
+  ipcMain.handle('dialog:saveFile', async (_event, defaultName: string, filters?: { name: string; extensions: string[] }[]) => {
+    const result = await dialog.showSaveDialog({
+      defaultPath: defaultName,
+      filters: filters ?? [{ name: 'All Files', extensions: ['*'] }],
+    });
+    if (result.canceled || !result.filePath) return null;
+    return result.filePath;
+  });
+
+  ipcMain.handle('export:html', async (_event, filePath: string, html: string) => {
+    await fsPromises.writeFile(filePath, html, 'utf-8');
+  });
+
+  ipcMain.handle('export:captureUrl', async (_event, url: string, width: number, height: number) => {
+    const win = new BrowserWindow({
+      show: false,
+      width: Math.max(width, 800),
+      height: Math.max(height, 600),
+      webPreferences: { offscreen: true },
+    });
+    try {
+      await win.loadURL(url);
+      await new Promise((r) => setTimeout(r, 3000));
+      const image = await win.webContents.capturePage();
+      return `data:image/png;base64,${image.toPNG().toString('base64')}`;
+    } catch {
+      return null;
+    } finally {
+      win.destroy();
+    }
+  });
+
+  ipcMain.handle('export:pdf', async (_event, filePath: string, html: string) => {
+    const win = new BrowserWindow({ show: false, width: 800, height: 600 });
+    try {
+      await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+      const pdfBuffer = await win.webContents.printToPDF({
+        printBackground: true,
+        margins: { marginType: 'default' },
+      });
+      await fsPromises.writeFile(filePath, pdfBuffer);
+    } finally {
+      win.destroy();
+    }
+  });
+
+  ipcMain.handle('dialog:openFile', async (_event, filters?: { name: string; extensions: string[] }[]) => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile'],
+      filters: filters ?? [{ name: 'All Files', extensions: ['*'] }],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
+  });
+
   ipcMain.handle(
     'project:scaffold',
     async (_event, parentPath: string, name: string) => {
