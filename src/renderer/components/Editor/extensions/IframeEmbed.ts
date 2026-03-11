@@ -1,4 +1,6 @@
 import { Node, mergeAttributes, createAtomBlockMarkdownSpec } from '@tiptap/core';
+import { ReactNodeViewRenderer } from '@tiptap/react';
+import { IframeEmbedView } from './IframeEmbedView';
 
 export interface IframeEmbedOptions {
   allowFullscreen: boolean;
@@ -66,6 +68,10 @@ export const IframeEmbed = Node.create<IframeEmbedOptions>({
           });
         },
     };
+  },
+
+  addNodeView() {
+    return ReactNodeViewRenderer(IframeEmbedView);
   },
 
   ...createAtomBlockMarkdownSpec({

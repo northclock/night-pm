@@ -4,13 +4,13 @@
  */
 export function buildExportHtml(title: string, bodyHtml: string): string {
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(title)}</title>
 <style>
-  :root {
+  :root, [data-theme="light"] {
     --fg: #1a1a2e;
     --bg: #ffffff;
     --muted: #6b7280;
@@ -18,17 +18,21 @@ export function buildExportHtml(title: string, bodyHtml: string): string {
     --primary: #4f46e5;
     --secondary: #f3f4f6;
     --code-bg: #f3f4f6;
+    --toggle-bg: #e5e7eb;
+    --toggle-knob: #ffffff;
+    --toggle-icon: #f59e0b;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --fg: #e5e7eb;
-      --bg: #1a1a2e;
-      --muted: #9ca3af;
-      --border: #374151;
-      --primary: #818cf8;
-      --secondary: #1f2937;
-      --code-bg: #1f2937;
-    }
+  [data-theme="dark"] {
+    --fg: #e5e7eb;
+    --bg: #111827;
+    --muted: #9ca3af;
+    --border: #374151;
+    --primary: #818cf8;
+    --secondary: #1f2937;
+    --code-bg: #1f2937;
+    --toggle-bg: #374151;
+    --toggle-knob: #1f2937;
+    --toggle-icon: #818cf8;
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -36,9 +40,10 @@ export function buildExportHtml(title: string, bodyHtml: string): string {
     color: var(--fg);
     background: var(--bg);
     line-height: 1.75;
-    max-width: 800px;
+    max-width: 1100px;
     margin: 0 auto;
-    padding: 2rem 1.5rem;
+    padding: 2.5rem 3rem;
+    transition: color 0.25s, background 0.25s;
   }
   h1, h2, h3, h4, h5, h6 { font-weight: 700; line-height: 1.3; margin-top: 1.5em; margin-bottom: 0.5em; }
   h1 { font-size: 2em; }
@@ -90,13 +95,84 @@ export function buildExportHtml(title: string, bodyHtml: string): string {
   mark { padding: 0.1em 0.2em; border-radius: 2px; }
   iframe { width: 100%; border: none; border-radius: 8px; }
   .iframe-embed-wrapper { margin: 1em 0; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
-  .iframe-embed-wrapper iframe { display: block; width: 100%; height: 400px; border: none; }
+  .iframe-embed-wrapper iframe { display: block; width: 100%; border: none; }
   div[data-youtube-video] { margin: 1em 0; }
   div[data-youtube-video] iframe { width: 100%; aspect-ratio: 16/9; border-radius: 8px; border: none; }
+
+  /* Theme toggle */
+  .theme-toggle {
+    position: fixed;
+    bottom: 1.25rem;
+    left: 1.25rem;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--secondary);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.35rem 0.75rem 0.35rem 0.5rem;
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted);
+    transition: background 0.25s, border-color 0.25s, color 0.25s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .theme-toggle:hover { border-color: var(--primary); color: var(--fg); }
+  .theme-toggle-track {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    background: var(--toggle-bg);
+    border-radius: 999px;
+    transition: background 0.25s;
+    flex-shrink: 0;
+  }
+  .theme-toggle-knob {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: var(--toggle-knob);
+    border-radius: 50%;
+    transition: transform 0.25s, background 0.25s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  }
+  [data-theme="dark"] .theme-toggle-knob { transform: translateX(16px); }
+  .theme-toggle-icon { font-size: 10px; line-height: 1; }
 </style>
 </head>
 <body>
 ${bodyHtml}
+<button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+  <span class="theme-toggle-track">
+    <span class="theme-toggle-knob"><span class="theme-toggle-icon" id="theme-icon">&#9788;</span></span>
+  </span>
+  <span id="theme-label">Light</span>
+</button>
+<script>
+function toggleTheme(){
+  var html=document.documentElement;
+  var isDark=html.getAttribute('data-theme')==='dark';
+  var next=isDark?'light':'dark';
+  html.setAttribute('data-theme',next);
+  document.getElementById('theme-icon').innerHTML=next==='dark'?'&#9790;':'&#9788;';
+  document.getElementById('theme-label').textContent=next==='dark'?'Dark':'Light';
+  try{localStorage.setItem('theme',next)}catch(e){}
+}
+(function(){
+  try{var s=localStorage.getItem('theme');if(s){
+    document.documentElement.setAttribute('data-theme',s);
+    if(s==='dark'){document.getElementById('theme-icon').innerHTML='&#9790;';document.getElementById('theme-label').textContent='Dark';}
+  }}catch(e){}
+})();
+</script>
 </body>
 </html>`;
 }
