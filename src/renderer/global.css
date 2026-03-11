@@ -190,3 +190,347 @@
 input, textarea, select {
   outline: none;
 }
+
+/* ===== Tiptap Editor Styles ===== */
+
+.tiptap-editor {
+  color: var(--foreground);
+  line-height: 1.75;
+  caret-color: var(--primary);
+}
+
+.tiptap-editor > *:first-child {
+  margin-top: 0;
+}
+
+/* Headings */
+.tiptap-editor h1,
+.tiptap-editor h2,
+.tiptap-editor h3,
+.tiptap-editor h4,
+.tiptap-editor h5,
+.tiptap-editor h6 {
+  color: var(--foreground);
+  font-weight: 700;
+  line-height: 1.3;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+.tiptap-editor h1 { font-size: 2em; }
+.tiptap-editor h2 { font-size: 1.5em; }
+.tiptap-editor h3 { font-size: 1.25em; }
+
+/* Paragraphs */
+.tiptap-editor p {
+  margin: 0.75em 0;
+}
+
+/* Bold / Strong */
+.tiptap-editor strong {
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+/* Links */
+.tiptap-editor a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.tiptap-editor a:hover {
+  opacity: 0.8;
+}
+
+/* Inline code */
+.tiptap-editor code:not(pre code) {
+  background: var(--secondary);
+  color: var(--primary);
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  font-size: 0.875em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Code blocks */
+.tiptap-editor pre {
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1em 1.25em;
+  margin: 1em 0;
+  overflow-x: auto;
+  font-size: 0.875em;
+}
+
+.tiptap-editor pre code {
+  background: transparent;
+  color: var(--foreground);
+  padding: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Blockquotes */
+.tiptap-editor blockquote {
+  border-left: 3px solid var(--primary);
+  padding-left: 1em;
+  margin: 1em 0;
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+
+/* Horizontal rule */
+.tiptap-editor hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.5em 0;
+}
+
+/* Lists */
+.tiptap-editor ul {
+  list-style-type: disc;
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.tiptap-editor ol {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.tiptap-editor li {
+  margin: 0.25em 0;
+}
+
+.tiptap-editor li > p {
+  margin: 0;
+}
+
+/* Task list */
+.tiptap-editor ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.tiptap-editor ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+}
+
+.tiptap-editor ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+  margin-top: 0.3em;
+}
+
+.tiptap-editor ul[data-type="taskList"] li > label input[type="checkbox"] {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  display: grid;
+  place-content: center;
+  background: transparent;
+  transition: all 0.15s;
+}
+
+.tiptap-editor ul[data-type="taskList"] li > label input[type="checkbox"]:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.tiptap-editor ul[data-type="taskList"] li > label input[type="checkbox"]:checked::after {
+  content: '✓';
+  color: var(--primary-foreground);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.tiptap-editor ul[data-type="taskList"] li[data-checked="true"] > div > p {
+  text-decoration: line-through;
+  color: var(--muted-foreground);
+}
+
+/* Tables */
+.tiptap-editor table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.tiptap-editor table td,
+.tiptap-editor table th {
+  border: 1px solid var(--border);
+  padding: 0.5em 0.75em;
+  vertical-align: top;
+  min-width: 80px;
+  position: relative;
+}
+
+.tiptap-editor table th {
+  background: var(--secondary);
+  font-weight: 600;
+  text-align: left;
+}
+
+.tiptap-editor table td > p,
+.tiptap-editor table th > p {
+  margin: 0;
+}
+
+.tiptap-editor table .selectedCell {
+  background: var(--primary);
+  background: oklch(from var(--primary) l c h / 0.15);
+}
+
+.tiptap-editor .tableWrapper {
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.tiptap-editor .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -2px;
+  width: 4px;
+  background: var(--primary);
+  pointer-events: none;
+}
+
+.tiptap-editor .resize-cursor {
+  cursor: col-resize;
+}
+
+/* Images */
+.tiptap-editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 1em 0;
+}
+
+.tiptap-editor img.ProseMirror-selectednode {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* YouTube embeds */
+.tiptap-editor div[data-youtube-video] {
+  margin: 1em 0;
+}
+
+.tiptap-editor div[data-youtube-video] iframe {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  border: none;
+}
+
+/* Details / collapsible */
+.tiptap-editor details {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 1em 0;
+  overflow: hidden;
+}
+
+.tiptap-editor details summary {
+  padding: 0.75em 1em;
+  cursor: pointer;
+  font-weight: 600;
+  background: var(--secondary);
+  user-select: none;
+}
+
+.tiptap-editor details summary:hover {
+  opacity: 0.8;
+}
+
+.tiptap-editor details > div:last-child {
+  padding: 0.75em 1em;
+}
+
+/* Mathematics / LaTeX */
+.tiptap-editor .Tiptap-mathematics-editor,
+.tiptap-editor .Tiptap-mathematics-render {
+  display: inline;
+}
+
+.tiptap-editor .Tiptap-mathematics-editor {
+  background: var(--secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875em;
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+}
+
+.tiptap-editor .Tiptap-mathematics-render .katex {
+  font-size: 1.1em;
+}
+
+.tiptap-editor .Tiptap-mathematics-editor--is-editing {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+/* Placeholder */
+.tiptap-editor p.is-editor-empty:first-child::before,
+.tiptap-editor .is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--muted-foreground);
+  pointer-events: none;
+  height: 0;
+  opacity: 0.5;
+}
+
+/* Focus ring for has-focus class */
+.tiptap-editor .has-focus {
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px oklch(from var(--primary) l c h / 0.2);
+}
+
+/* Highlight marks */
+.tiptap-editor mark {
+  padding: 0.1em 0.2em;
+  border-radius: 2px;
+}
+
+/* Lowlight syntax highlighting tokens */
+.tiptap-editor .hljs-comment,
+.tiptap-editor .hljs-quote { color: #6a737d; }
+.tiptap-editor .hljs-variable,
+.tiptap-editor .hljs-template-variable,
+.tiptap-editor .hljs-attr,
+.tiptap-editor .hljs-tag,
+.tiptap-editor .hljs-name,
+.tiptap-editor .hljs-selector-id,
+.tiptap-editor .hljs-selector-class,
+.tiptap-editor .hljs-regexp,
+.tiptap-editor .hljs-deletion { color: #e06c75; }
+.tiptap-editor .hljs-number,
+.tiptap-editor .hljs-built_in,
+.tiptap-editor .hljs-literal,
+.tiptap-editor .hljs-type,
+.tiptap-editor .hljs-params,
+.tiptap-editor .hljs-meta,
+.tiptap-editor .hljs-link { color: #d19a66; }
+.tiptap-editor .hljs-string,
+.tiptap-editor .hljs-symbol,
+.tiptap-editor .hljs-bullet,
+.tiptap-editor .hljs-addition { color: #98c379; }
+.tiptap-editor .hljs-title,
+.tiptap-editor .hljs-section { color: #61afef; }
+.tiptap-editor .hljs-keyword,
+.tiptap-editor .hljs-selector-tag { color: #c678dd; }
+.tiptap-editor .hljs-emphasis { font-style: italic; }
+.tiptap-editor .hljs-strong { font-weight: 700; }
